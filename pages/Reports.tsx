@@ -31,7 +31,7 @@ export const Reports: React.FC = () => {
     return { filteredRevenues, filteredExpenses, filteredOrders };
   }, [revenues, expenses, orders, timeRange]);
 
-  // Combined Sorted Transactions (Ledger)
+  // Combined Sorted Transactions (Ledger) for Display
   const transactions = useMemo(() => {
     const entries = filteredData.filteredRevenues.map(r => ({
       id: r.id,
@@ -75,6 +75,62 @@ export const Reports: React.FC = () => {
 
   // Inventory Alerts (Items below min stock)
   const lowStockItems = ingredients.filter(i => i.stockQuantity <= i.minStock);
+
+  // Export Logic
+  const handleExport = () => {
+    // 1. Combine ALL data (ignoring timeRange filter for export)
+    const allRevenues = revenues.map(r => ({
+      date: r.date,
+      type: 'RECEITA',
+      description: r.description,
+      category: r.category,
+      amount: r.amount,
+      status: 'Pago',
+      payment: r.paymentMethod
+    }));
+
+    const allExpenses = expenses.map(e => ({
+      date: e.date,
+      type: 'DESPESA',
+      description: e.description,
+      category: e.category,
+      amount: e.amount * -1, // Negative for expense visualization
+      status: e.status === 'paid' ? 'Pago' : 'Pendente',
+      payment: e.paymentMethod
+    }));
+
+    const combinedAll = [...allRevenues, ...allExpenses].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // 2. Define Headers
+    const headers = ["Data", "Tipo", "Descrição", "Categoria", "Valor", "Status", "Pagamento"];
+
+    // 3. Map Rows (CSV format: Semicolon separated for Excel compatibility in BR)
+    const rows = combinedAll.map(row => [
+      new Date(row.date).toLocaleDateString('pt-BR'),
+      row.type,
+      `"${row.description.replace(/"/g, '""')}"`, // Escape quotes
+      row.category,
+      row.amount.toFixed(2).replace('.', ','), // Brazilian decimal format
+      row.status,
+      row.payment
+    ]);
+
+    // 4. Construct CSV String with BOM for UTF-8
+    const csvContent = "\uFEFF" + [
+      headers.join(';'),
+      ...rows.map(r => r.join(';'))
+    ].join('\n');
+
+    // 5. Trigger Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_financeiro_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -190,8 +246,11 @@ export const Reports: React.FC = () => {
                   <Calendar size={20} className="text-blue-600" /> 
                   Extrato de Movimentações
                 </h3>
-                <button className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                  <Download size={16} /> Exportar
+                <button 
+                  onClick={handleExport}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 font-medium"
+                >
+                  <Download size={16} /> Exportar Todas
                 </button>
               </div>
               
