@@ -6,6 +6,7 @@ import { Revenues } from './pages/Revenues';
 import { Expenses } from './pages/Expenses';
 import { Products } from './pages/Products';
 import { Inventory } from './pages/Inventory';
+import { Reports } from './pages/Reports';
 
 // Simple Auth Component
 const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
@@ -80,7 +81,7 @@ const App: React.FC = () => {
       case 'expenses': return <Expenses />;
       case 'products': return <Products />;
       case 'inventory': return <Inventory />;
-      case 'reports': return <div className="p-10 text-center text-gray-500">Módulo de Relatórios Detalhados (Em Breve)</div>;
+      case 'reports': return <Reports />;
       default: return <Dashboard />;
     }
   };

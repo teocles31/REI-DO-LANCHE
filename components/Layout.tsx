@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
     { id: 'expenses', label: 'Despesas (Saídas)', icon: TrendingDown },
     { id: 'products', label: 'Engenharia de Menu', icon: Utensils },
     { id: 'inventory', label: 'Estoque & Insumos', icon: Package },
+    { id: 'reports', label: 'Relatórios', icon: FileText },
   ];
 
   return (

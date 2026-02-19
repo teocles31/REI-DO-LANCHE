@@ -72,3 +72,15 @@ export interface DashboardStats {
   margin: number;
   pendingExpenses: number;
 }
+
+export type StockMovementType = 'entry' | 'loss' | 'adjustment';
+
+export interface StockMovement {
+  id: string;
+  ingredientId: string;
+  type: StockMovementType;
+  quantity: number;
+  date: string;
+  reason?: string;
+  cost?: number; // Custo unitário ou total naquele momento
+}

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
-import { Ingredient, Product, Revenue, Expense } from '../types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Ingredient, Product, Revenue, Expense, StockMovement } from '../types';
 import { generateId } from '../utils/formatters';
 
 interface AppContextProps {
@@ -7,6 +7,7 @@ interface AppContextProps {
   products: Product[];
   revenues: Revenue[];
   expenses: Expense[];
+  stockMovements: StockMovement[];
   addIngredient: (ing: Omit<Ingredient, 'id'>) => void;
   updateIngredient: (id: string, ing: Partial<Ingredient>) => void;
   addProduct: (prod: Omit<Product, 'id' | 'totalCost' | 'margin' | 'marginPercent'>) => void;
@@ -18,12 +19,22 @@ interface AppContextProps {
   deleteExpense: (id: string) => void;
   deleteRevenue: (id: string) => void;
   registerLoss: (ingredientId: string, quantity: number, reason: string) => void;
+  addStockEntry: (ingredientId: string, quantity: number, costPerUnit: number, reason?: string) => void;
   getProductCost: (product: Product) => number;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
-// Seed Data
+// Storage Keys
+const STORAGE_KEYS = {
+  INGREDIENTS: 'reidolanche_ingredients',
+  PRODUCTS: 'reidolanche_products',
+  REVENUES: 'reidolanche_revenues',
+  EXPENSES: 'reidolanche_expenses',
+  STOCK_MOVEMENTS: 'reidolanche_stock_movements',
+};
+
+// Seed Data (Used only on first load if storage is empty)
 const INITIAL_INGREDIENTS: Ingredient[] = [
   { id: '1', name: 'Pão Brioche', category: 'Insumos', unit: 'un', costPerUnit: 1.50, exitPrice: 0, stockQuantity: 100, minStock: 20 },
   { id: '2', name: 'Carne Moída (Blend)', category: 'Insumos', unit: 'kg', costPerUnit: 35.00, exitPrice: 0, stockQuantity: 10, minStock: 5 },
@@ -57,10 +68,53 @@ const INITIAL_PRODUCTS: Product[] = [
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [ingredients, setIngredients] = useState<Ingredient[]>(INITIAL_INGREDIENTS);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [revenues, setRevenues] = useState<Revenue[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  // Initialize state from LocalStorage or fallback to Initial Data
+  const [ingredients, setIngredients] = useState<Ingredient[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.INGREDIENTS);
+    return saved ? JSON.parse(saved) : INITIAL_INGREDIENTS;
+  });
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+  });
+
+  const [revenues, setRevenues] = useState<Revenue[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.REVENUES);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.STOCK_MOVEMENTS);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persistence Effects: Save to LocalStorage whenever state changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INGREDIENTS, JSON.stringify(ingredients));
+  }, [ingredients]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.REVENUES, JSON.stringify(revenues));
+  }, [revenues]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+  }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.STOCK_MOVEMENTS, JSON.stringify(stockMovements));
+  }, [stockMovements]);
+
 
   // Calculate generic cost for a product
   const getProductCost = (product: Product): number => {
@@ -71,7 +125,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addIngredient = (data: Omit<Ingredient, 'id'>) => {
-    setIngredients(prev => [...prev, { ...data, id: generateId() }]);
+    const newId = generateId();
+    setIngredients(prev => [...prev, { ...data, id: newId }]);
+    // Initial Stock Movement
+    if (data.stockQuantity > 0) {
+      setStockMovements(prev => [{
+        id: generateId(),
+        ingredientId: newId,
+        type: 'entry',
+        quantity: data.stockQuantity,
+        date: new Date().toISOString(),
+        reason: 'Estoque Inicial',
+        cost: data.costPerUnit
+      }, ...prev]);
+    }
   };
 
   const updateIngredient = (id: string, data: Partial<Ingredient>) => {
@@ -119,8 +186,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return ing;
     }));
 
-    // Optionally record as an expense or just a log. 
-    // For simplicity, we add it as an "Outros" expense to reflect financial loss
+    // Record Movement
+    setStockMovements(prev => [{
+        id: generateId(),
+        ingredientId,
+        type: 'loss',
+        quantity: quantity,
+        date: new Date().toISOString(),
+        reason: reason
+    }, ...prev]);
+
+    // Optionally record as an expense
     const ingredient = ingredients.find(i => i.id === ingredientId);
     if (ingredient) {
         const costLost = ingredient.costPerUnit * quantity;
@@ -130,10 +206,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             category: 'Outros',
             description: `Perda de Estoque: ${ingredient.name} (${reason})`,
             isRecurring: false,
-            paymentMethod: 'Dinheiro', // Symbolic
-            status: 'paid' // Loss is immediate
+            paymentMethod: 'Dinheiro', 
+            status: 'paid'
         });
     }
+  };
+
+  const addStockEntry = (ingredientId: string, quantity: number, costPerUnit: number, reason: string = 'Compra de Estoque') => {
+    setIngredients(prev => prev.map(ing => {
+        if (ing.id === ingredientId) {
+            // Optional: Update costPerUnit if the new batch has a different price (Replacement Cost method)
+            return { 
+                ...ing, 
+                stockQuantity: ing.stockQuantity + quantity,
+                costPerUnit: costPerUnit > 0 ? costPerUnit : ing.costPerUnit 
+            };
+        }
+        return ing;
+    }));
+
+    setStockMovements(prev => [{
+        id: generateId(),
+        ingredientId,
+        type: 'entry',
+        quantity: quantity,
+        date: new Date().toISOString(),
+        reason: reason,
+        cost: costPerUnit
+    }, ...prev]);
   };
 
   return (
@@ -142,6 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       products,
       revenues,
       expenses,
+      stockMovements,
       addIngredient,
       updateIngredient,
       addProduct,
@@ -153,6 +254,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteExpense,
       deleteRevenue,
       registerLoss,
+      addStockEntry,
       getProductCost
     }}>
       {children}
