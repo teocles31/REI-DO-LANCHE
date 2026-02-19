@@ -38,7 +38,6 @@ export const POS: React.FC = () => {
       setTimeout(() => {
         window.print();
         // Clear after a delay to allow the print dialog to grab the content
-        // In some browsers, clearing it immediately might result in blank pages
         setTimeout(() => setOrderToPrint(null), 500); 
       }, 100);
     }
@@ -54,11 +53,13 @@ export const POS: React.FC = () => {
   // Categories
   const categories: (ProductCategory | 'Todos')[] = ['Todos', 'Lanches', 'Combos', 'Porções', 'Bebidas', 'Sobremesas', 'Outros'];
 
-  // Customer Lookup
-  const handlePhoneBlur = () => {
-      const found = customers.find(c => c.phone === phone);
+  // Customer Lookup by Name
+  const handleNameBlur = () => {
+      if (!customerName) return;
+      // Search case-insensitive
+      const found = customers.find(c => c.name.toLowerCase() === customerName.trim().toLowerCase());
       if (found) {
-          setCustomerName(found.name);
+          setPhone(found.phone);
           if (found.address) setAddress(found.address);
           if (found.reference) setReference(found.reference);
       }
@@ -336,11 +337,6 @@ export const POS: React.FC = () => {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-4 animate-fade-in pb-4 relative">
       
-      {/* Invisible Print Component Container (needed here too if user refreshes page) */}
-      {/* We use a portal or just place it in History tab. But if user stays on main tab, it won't render. 
-          The History tab renders it. If you want to print from New Order success, we need it here too. 
-          Currently, requested feature is "Print from History", so it's handled in the block above. */}
-
       {/* Left: Product Catalog */}
       <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
          {/* Top Bar: Search & Categories */}
@@ -465,24 +461,30 @@ export const POS: React.FC = () => {
          {/* Customer Info Form (Sticky Bottom) */}
          <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
              <div className="bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5">
-                 <Phone size={16} className="text-gray-400 mr-2" />
+                 <User size={16} className="text-gray-400 mr-2" />
                  <input 
                      className="w-full text-sm outline-none text-gray-700" 
-                     placeholder="Telefone (Busca Cliente)"
-                     value={phone}
-                     onChange={e => setPhone(e.target.value)}
-                     onBlur={handlePhoneBlur}
+                     placeholder="Nome do Cliente (Busca)"
+                     value={customerName}
+                     onChange={e => setCustomerName(e.target.value)}
+                     onBlur={handleNameBlur}
+                     list="customer-suggestions"
                  />
+                 <datalist id="customer-suggestions">
+                    {customers.map(c => (
+                        <option key={c.id} value={c.name} />
+                    ))}
+                 </datalist>
              </div>
              
              <div className="flex gap-2">
                  <div className="flex-1 bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5">
-                     <User size={16} className="text-gray-400 mr-2" />
+                     <Phone size={16} className="text-gray-400 mr-2" />
                      <input 
                          className="w-full text-sm outline-none text-gray-700" 
-                         placeholder="Nome do Cliente"
-                         value={customerName}
-                         onChange={e => setCustomerName(e.target.value)}
+                         placeholder="Telefone"
+                         value={phone}
+                         onChange={e => setPhone(e.target.value)}
                      />
                  </div>
                  <select 
