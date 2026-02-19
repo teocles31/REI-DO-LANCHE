@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Product, OrderItem, PaymentMethod, ProductCategory, Order } from '../types';
 import { formatCurrency, generateId, formatDate } from '../utils/formatters';
-import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer, Trash2 } from 'lucide-react';
 import { MoneyInput } from '../components/MoneyInput';
 
 export const POS: React.FC = () => {
@@ -32,16 +32,11 @@ export const POS: React.FC = () => {
   // Printing State
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
 
-  // Trigger print dialog when orderToPrint is set
-  useEffect(() => {
-    if (orderToPrint) {
-      setTimeout(() => {
-        window.print();
-        // Clear after a delay to allow the print dialog to grab the content
-        setTimeout(() => setOrderToPrint(null), 500); 
-      }, 100);
-    }
-  }, [orderToPrint]);
+  // Visual History State (Timestamp to filter visible orders)
+  const [historyClearTime, setHistoryClearTime] = useState<number>(() => {
+      const saved = localStorage.getItem('pos_history_clear_time');
+      return saved ? parseInt(saved) : 0;
+  });
 
   // Filter Products
   const filteredProducts = products.filter(p => {
@@ -49,6 +44,24 @@ export const POS: React.FC = () => {
       const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
       return matchesSearch && matchesCategory;
   });
+
+  // Filter Visible Orders based on clear time
+  const visibleOrders = useMemo(() => {
+    return orders.filter(o => new Date(o.date).getTime() > historyClearTime);
+  }, [orders, historyClearTime]);
+
+  // Trigger print dialog automatically when orderToPrint is set
+  useEffect(() => {
+    if (orderToPrint) {
+      // Small delay to ensure React renders the receipt content in the DOM
+      const timer = setTimeout(() => {
+        window.print();
+        // Clear after printing dialog is closed (or immediately after trigger)
+        setOrderToPrint(null); 
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [orderToPrint]);
 
   // Categories
   const categories: (ProductCategory | 'Todos')[] = ['Todos', 'Lanches', 'Combos', 'Porções', 'Bebidas', 'Sobremesas', 'Outros'];
@@ -62,6 +75,14 @@ export const POS: React.FC = () => {
           setPhone(found.phone);
           if (found.address) setAddress(found.address);
           if (found.reference) setReference(found.reference);
+      }
+  };
+
+  const handleClearHistory = () => {
+      if (confirm('Deseja limpar a lista de pedidos da tela? \n\nNota: Os valores financeiros continuarão salvos nos relatórios.')) {
+          const now = Date.now();
+          setHistoryClearTime(now);
+          localStorage.setItem('pos_history_clear_time', now.toString());
       }
   };
 
@@ -173,9 +194,9 @@ export const POS: React.FC = () => {
     };
 
     processOrder(newOrder);
-
-    // Auto-open print dialog optionally or just show success
-    // setOrderToPrint(newOrder); 
+    
+    // Auto-trigger print
+    setOrderToPrint(newOrder);
     
     setIsCheckoutSuccess(true);
     
@@ -203,6 +224,12 @@ export const POS: React.FC = () => {
                         <History /> Histórico de Pedidos
                     </h2>
                   </div>
+                  <button 
+                    onClick={handleClearHistory}
+                    className="flex items-center gap-2 bg-red-100 text-red-600 px-4 py-2 rounded-lg hover:bg-red-200 transition text-sm font-medium"
+                  >
+                      <Trash2 size={16} /> Limpar Tela
+                  </button>
               </div>
               
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 overflow-y-auto">
@@ -219,10 +246,10 @@ export const POS: React.FC = () => {
                          </tr>
                      </thead>
                      <tbody className="divide-y divide-gray-100">
-                         {orders.length === 0 ? (
-                             <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum pedido realizado.</td></tr>
+                         {visibleOrders.length === 0 ? (
+                             <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum pedido recente.</td></tr>
                          ) : (
-                             orders.map(order => (
+                             visibleOrders.map(order => (
                                  <tr key={order.id} className="hover:bg-gray-50">
                                      <td className="px-6 py-3">
                                          <span className="font-mono text-xs text-gray-400">#{order.id.slice(0,4)}</span>
@@ -337,6 +364,65 @@ export const POS: React.FC = () => {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-4 animate-fade-in pb-4 relative">
       
+      {/* Invisible Print Component Container (needed here too if user stays on main tab) */}
+      <div id="printable-content">
+        {orderToPrint && (
+            <>
+                <div className="print-center print-bold" style={{ fontSize: '10pt', marginBottom: '2mm' }}>REI DO LANCHE</div>
+                <div className="print-center">Pedido: #{orderToPrint.id.slice(0,4)}</div>
+                <div className="print-center">{new Date(orderToPrint.date).toLocaleString('pt-BR')}</div>
+                <div className="print-divider"></div>
+                <div className="print-left">
+                    Cliente: {orderToPrint.customerName}<br/>
+                    Tel: {orderToPrint.customerPhone || 'N/A'}<br/>
+                    Tipo: {orderToPrint.deliveryType.toUpperCase()}
+                </div>
+                {orderToPrint.deliveryType === 'entrega' && (
+                        <div className="print-left" style={{ marginTop: '1mm', fontSize: '6.90pt' }}>
+                            End: {orderToPrint.address}<br/>
+                            Ref: {orderToPrint.reference}
+                        </div>
+                )}
+                <div className="print-divider"></div>
+                {orderToPrint.items.map((item, i) => (
+                    <div key={i} style={{ marginBottom: '1mm', fontSize: '7pt' }}>
+                        <div className="print-row">
+                            <span style={{ width: '10%' }}>{item.quantity}x</span>
+                            <span style={{ width: '65%' }}>{item.productName}</span>
+                            <span style={{ width: '25%', textAlign: 'right' }}>{formatCurrency(item.total).replace('R$', '').trim()}</span>
+                        </div>
+                        {item.selectedComplements.length > 0 && (
+                            <div style={{ fontSize: '6pt', paddingLeft: '10%' }}>
+                                + {item.selectedComplements.join(', ')}
+                            </div>
+                        )}
+                    </div>
+                ))}
+                <div className="print-divider"></div>
+                <div className="print-row print-bold" style={{ fontSize: '8pt' }}>
+                    <span>TOTAL:</span>
+                    <span>{formatCurrency(orderToPrint.totalAmount)}</span>
+                </div>
+                <div className="print-divider"></div>
+                <div className="print-left">
+                    Pagamento: {orderToPrint.paymentMethod}<br/>
+                    {orderToPrint.paymentMethod === 'Dinheiro' && orderToPrint.changeFor && (
+                        <>Troco para: {formatCurrency(orderToPrint.changeFor)}<br/>
+                            Devolver: {formatCurrency(orderToPrint.changeFor - orderToPrint.totalAmount)}
+                        </>
+                    )}
+                </div>
+                <div className="print-center" style={{ marginTop: '4mm' }}>
+                    Obrigado pela preferência!<br/>
+                    Volte sempre.
+                </div>
+                <div className="print-center" style={{ marginTop: '2mm', fontSize: '6pt' }}>
+                    Sistema Rei do Lanche
+                </div>
+            </>
+        )}
+      </div>
+
       {/* Left: Product Catalog */}
       <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
          {/* Top Bar: Search & Categories */}
