@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Calendar, Download, TrendingUp, TrendingDown, AlertTriangle, ArrowUpCircle, ArrowDownCircle, CheckCircle } from 'lucide-react';
+import { Calendar, Download, TrendingUp, TrendingDown, AlertTriangle, ArrowUpCircle, ArrowDownCircle, CheckCircle, Package, ShoppingBag } from 'lucide-react';
 
 type TimeRange = 'daily' | 'weekly' | 'monthly';
 
 export const Reports: React.FC = () => {
-  const { revenues, expenses, ingredients } = useApp();
+  const { revenues, expenses, ingredients, orders } = useApp();
   const [timeRange, setTimeRange] = useState<TimeRange>('monthly');
 
   // Filter Logic
@@ -25,10 +25,11 @@ export const Reports: React.FC = () => {
     };
 
     const filteredRevenues = revenues.filter(r => filterFn(r.date));
-    const filteredExpenses = expenses.filter(e => filterFn(e.date)); // Using due date for report
+    const filteredExpenses = expenses.filter(e => filterFn(e.date)); 
+    const filteredOrders = orders.filter(o => filterFn(o.date));
 
-    return { filteredRevenues, filteredExpenses };
-  }, [revenues, expenses, timeRange]);
+    return { filteredRevenues, filteredExpenses, filteredOrders };
+  }, [revenues, expenses, orders, timeRange]);
 
   // Combined Sorted Transactions (Ledger)
   const transactions = useMemo(() => {
@@ -39,7 +40,7 @@ export const Reports: React.FC = () => {
       amount: r.amount,
       type: 'entry' as const,
       category: r.category,
-      status: 'paid' // Revenues are assumed realized upon entry in this simple app
+      status: 'paid' 
     }));
 
     const exits = filteredData.filteredExpenses.map(e => ({
@@ -54,6 +55,18 @@ export const Reports: React.FC = () => {
 
     return [...entries, ...exits].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredData]);
+
+  // Product Sales Aggregation
+  const productSales = useMemo(() => {
+    const sales: Record<string, number> = {};
+    filteredData.filteredOrders.forEach(order => {
+        order.items.forEach(item => {
+            sales[item.productName] = (sales[item.productName] || 0) + item.quantity;
+        });
+    });
+    // Convert to array and sort by quantity descending
+    return Object.entries(sales).sort((a, b) => b[1] - a[1]);
+  }, [filteredData.filteredOrders]);
 
   // Calculations
   const totalRevenue = filteredData.filteredRevenues.reduce((acc, curr) => acc + curr.amount, 0);
@@ -131,73 +144,113 @@ export const Reports: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Transaction Ledger */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <Calendar size={20} className="text-orange-600" /> 
-              Extrato de Movimentações
-            </h3>
-            <button className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-              <Download size={16} /> Exportar
-            </button>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-600 border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-3 font-semibold">Data</th>
-                    <th className="px-6 py-3 font-semibold">Descrição</th>
-                    <th className="px-6 py-3 font-semibold">Categoria</th>
-                    <th className="px-6 py-3 font-semibold text-right">Valor</th>
-                    <th className="px-6 py-3 font-semibold text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-400">
-                        Nenhuma movimentação neste período.
-                      </td>
-                    </tr>
-                  ) : (
-                    transactions.map((t) => (
-                      <tr key={t.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-3 text-gray-500">{formatDate(t.date)}</td>
-                        <td className="px-6 py-3 font-medium text-gray-800">{t.description}</td>
-                        <td className="px-6 py-3">
-                          <span className={`px-2 py-1 rounded-md text-xs border ${
-                            t.type === 'entry' 
-                              ? 'bg-green-50 text-green-700 border-green-100' 
-                              : 'bg-red-50 text-red-700 border-red-100'
-                          }`}>
-                            {t.category}
-                          </span>
-                        </td>
-                        <td className={`px-6 py-3 text-right font-bold ${
-                          t.type === 'entry' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {t.type === 'entry' ? '+' : '-'} {formatCurrency(t.amount)}
-                        </td>
-                        <td className="px-6 py-3 text-center">
-                           {t.status === 'paid' ? (
-                             <span title="Realizado" className="text-green-500"><CheckCircle size={16} className="mx-auto" /></span>
-                           ) : (
-                             <span title="Pendente" className="text-orange-400"><AlertTriangle size={16} className="mx-auto" /></span>
-                           )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+        {/* Main Column */}
+        <div className="lg:col-span-2 space-y-8">
+            
+            {/* Sales by Product */}
+            <div>
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+                  <ShoppingBag size={20} className="text-orange-600" /> 
+                  Vendas por Produto
+                </h3>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                                <tr>
+                                    <th className="px-6 py-3 font-semibold">Produto</th>
+                                    <th className="px-6 py-3 font-semibold text-right">Qtd. Vendida</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {productSales.length === 0 ? (
+                                    <tr><td colSpan={2} className="px-6 py-4 text-center text-gray-400">Nenhuma venda no período.</td></tr>
+                                ) : (
+                                    productSales.map(([name, qty]) => (
+                                        <tr key={name} className="hover:bg-gray-50">
+                                            <td className="px-6 py-3 font-medium text-gray-800">{name}</td>
+                                            <td className="px-6 py-3 text-right">
+                                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-bold">
+                                                    {qty} un
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            {/* Transaction Ledger */}
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <Calendar size={20} className="text-blue-600" /> 
+                  Extrato de Movimentações
+                </h3>
+                <button className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                  <Download size={16} /> Exportar
+                </button>
+              </div>
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 text-gray-600 border-b border-gray-100 sticky top-0">
+                      <tr>
+                        <th className="px-6 py-3 font-semibold">Data</th>
+                        <th className="px-6 py-3 font-semibold">Descrição</th>
+                        <th className="px-6 py-3 font-semibold">Categoria</th>
+                        <th className="px-6 py-3 font-semibold text-right">Valor</th>
+                        <th className="px-6 py-3 font-semibold text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {transactions.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-8 text-gray-400">
+                            Nenhuma movimentação neste período.
+                          </td>
+                        </tr>
+                      ) : (
+                        transactions.map((t) => (
+                          <tr key={t.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-3 text-gray-500">{formatDate(t.date)}</td>
+                            <td className="px-6 py-3 font-medium text-gray-800">{t.description}</td>
+                            <td className="px-6 py-3">
+                              <span className={`px-2 py-1 rounded-md text-xs border ${
+                                t.type === 'entry' 
+                                  ? 'bg-green-50 text-green-700 border-green-100' 
+                                  : 'bg-red-50 text-red-700 border-red-100'
+                              }`}>
+                                {t.category}
+                              </span>
+                            </td>
+                            <td className={`px-6 py-3 text-right font-bold ${
+                              t.type === 'entry' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {t.type === 'entry' ? '+' : '-'} {formatCurrency(t.amount)}
+                            </td>
+                            <td className="px-6 py-3 text-center">
+                              {t.status === 'paid' ? (
+                                <span title="Realizado" className="text-green-500"><CheckCircle size={16} className="mx-auto" /></span>
+                              ) : (
+                                <span title="Pendente" className="text-orange-400"><AlertTriangle size={16} className="mx-auto" /></span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
         </div>
 
-        {/* Stock Alerts & Insights */}
+        {/* Right Column: Alerts */}
         <div className="space-y-6">
            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               <AlertTriangle size={20} className="text-red-500" /> 

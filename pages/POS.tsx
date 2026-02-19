@@ -286,14 +286,14 @@ export const POS: React.FC = () => {
                            Tipo: {orderToPrint.deliveryType.toUpperCase()}
                         </div>
                         {orderToPrint.deliveryType === 'entrega' && (
-                             <div className="print-left" style={{ marginTop: '1mm' }}>
+                             <div className="print-left" style={{ marginTop: '1mm', fontSize: '6.90pt' }}>
                                  End: {orderToPrint.address}<br/>
                                  Ref: {orderToPrint.reference}
                              </div>
                         )}
                         <div className="print-divider"></div>
                         {orderToPrint.items.map((item, i) => (
-                            <div key={i} style={{ marginBottom: '1mm' }}>
+                            <div key={i} style={{ marginBottom: '1mm', fontSize: '7pt' }}>
                                 <div className="print-row">
                                     <span style={{ width: '10%' }}>{item.quantity}x</span>
                                     <span style={{ width: '65%' }}>{item.productName}</span>
@@ -460,7 +460,7 @@ export const POS: React.FC = () => {
 
          {/* Customer Info Form (Sticky Bottom) */}
          <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
-             <div className="bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5">
+             <div className="bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5 relative">
                  <User size={16} className="text-gray-400 mr-2" />
                  <input 
                      className="w-full text-sm outline-none text-gray-700" 
@@ -475,6 +475,11 @@ export const POS: React.FC = () => {
                         <option key={c.id} value={c.name} />
                     ))}
                  </datalist>
+                 {customerName && !customers.find(c => c.name.toLowerCase() === customerName.toLowerCase()) && (
+                     <span className="absolute right-2 text-xs text-green-600 font-bold bg-green-50 px-2 rounded pointer-events-none">
+                         Novo
+                     </span>
+                 )}
              </div>
              
              <div className="flex gap-2">
