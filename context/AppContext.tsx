@@ -15,6 +15,7 @@ interface AppContextProps {
   addIngredient: (ing: Omit<Ingredient, 'id'>) => void;
   updateIngredient: (id: string, ing: Partial<Ingredient>) => void;
   addProduct: (prod: Omit<Product, 'id' | 'totalCost' | 'margin' | 'marginPercent'>) => void;
+  updateProduct: (id: string, prod: Partial<Product>) => void;
   addRevenue: (rev: Omit<Revenue, 'id'>) => void;
   addExpense: (exp: Omit<Expense, 'id'>) => void;
   updateExpense: (id: string, exp: Partial<Expense>) => void;
@@ -177,6 +178,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
 
   const addProduct = (data: Omit<Product, 'id' | 'totalCost' | 'margin' | 'marginPercent'>) => {
     setProducts(prev => [...prev, { ...data, id: generateId() }]);
+  };
+
+  const updateProduct = (id: string, data: Partial<Product>) => {
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
   };
 
   const deleteProduct = (id: string) => {
@@ -427,6 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
       addIngredient,
       updateIngredient,
       addProduct,
+      updateProduct,
       addRevenue,
       addExpense,
       updateExpense,

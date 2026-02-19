@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Product, ProductIngredient, ProductComplement, ProductCategory } from '../types';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { Plus, Trash2, ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Layers, X, Edit2 } from 'lucide-react';
 import { MoneyInput } from '../components/MoneyInput';
 import { AdminAuthModal } from '../components/AdminAuthModal';
 
 export const Products: React.FC = () => {
-  const { products, ingredients, addProduct, deleteProduct, getProductCost } = useApp();
+  const { products, ingredients, addProduct, updateProduct, deleteProduct, getProductCost } = useApp();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Admin Auth
   const [authOpen, setAuthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<() => void>(() => {});
+  const [actionTitle, setActionTitle] = useState("Autorizar Ação");
 
   // New Product State
   const [newProduct, setNewProduct] = useState<{
@@ -86,17 +88,50 @@ export const Products: React.FC = () => {
     }));
   };
 
+  const resetForm = () => {
+    setNewProduct({ name: '', description: '', price: 0, category: 'Lanches', ingredients: [], complements: [] });
+    setEditingProductId(null);
+    setIsFormOpen(false);
+  };
+
   const handleSaveProduct = () => {
     if (newProduct.name && newProduct.price > 0) {
-      addProduct(newProduct);
-      setNewProduct({ name: '', description: '', price: 0, category: 'Lanches', ingredients: [], complements: [] });
-      setIsFormOpen(false);
+      if (editingProductId) {
+          // Update
+          requestAuth("Editar Produto", () => {
+              updateProduct(editingProductId, newProduct);
+              resetForm();
+          });
+      } else {
+          // Create
+          addProduct(newProduct);
+          resetForm();
+      }
     }
   };
 
-  const handleDelete = (id: string) => {
-    setPendingAction(() => () => deleteProduct(id));
+  const handleEditProduct = (product: Product) => {
+      setEditingProductId(product.id);
+      setNewProduct({
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          category: product.category,
+          ingredients: [...product.ingredients],
+          complements: [...(product.complements || [])]
+      });
+      setIsFormOpen(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const requestAuth = (title: string, action: () => void) => {
+    setActionTitle(title);
+    setPendingAction(() => action);
     setAuthOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    requestAuth("Excluir Produto", () => deleteProduct(id));
   };
 
   const toggleExpand = (id: string) => {
@@ -109,7 +144,7 @@ export const Products: React.FC = () => {
         isOpen={authOpen} 
         onClose={() => setAuthOpen(false)} 
         onConfirm={pendingAction}
-        actionTitle="Excluir Produto"
+        actionTitle={actionTitle}
       />
 
       <div className="flex justify-between items-center">
@@ -117,7 +152,7 @@ export const Products: React.FC = () => {
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Cardápio</h2>
         </div>
         <button 
-          onClick={() => setIsFormOpen(true)}
+          onClick={() => { resetForm(); setIsFormOpen(true); }}
           className="bg-orange-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-700 transition text-sm md:text-base"
         >
           <Plus size={18} />
@@ -125,10 +160,10 @@ export const Products: React.FC = () => {
         </button>
       </div>
 
-      {/* Product Creation Form */}
+      {/* Product Creation/Edit Form */}
       {isFormOpen && (
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-200 animate-fade-in">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Novo Produto</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-4">{editingProductId ? 'Editar Produto' : 'Novo Produto'}</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Basic Info */}
@@ -294,7 +329,7 @@ export const Products: React.FC = () => {
           
           <div className="mt-6 flex justify-end space-x-3">
              <button 
-               onClick={() => setIsFormOpen(false)}
+               onClick={resetForm}
                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
              >
                Cancelar
@@ -398,13 +433,22 @@ export const Products: React.FC = () => {
                           <span className="text-gray-500">Lucro Bruto:</span>
                           <span className="ml-2 font-bold text-green-600">{formatCurrency(margin)}</span>
                        </div>
-                       <button 
-                         onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}
-                         className="flex items-center space-x-1 text-red-500 text-sm hover:text-red-700 mt-4 bg-white border border-red-200 px-3 py-1.5 rounded shadow-sm"
-                       >
-                         <Trash2 size={16} /> 
-                         <span>Excluir Produto</span>
-                       </button>
+                       <div className="flex gap-2 mt-4">
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); handleEditProduct(product); }}
+                             className="flex items-center space-x-1 text-blue-600 text-sm hover:text-blue-800 bg-white border border-blue-200 px-3 py-1.5 rounded shadow-sm hover:bg-blue-50"
+                           >
+                             <Edit2 size={16} /> 
+                             <span>Editar</span>
+                           </button>
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}
+                             className="flex items-center space-x-1 text-red-500 text-sm hover:text-red-700 bg-white border border-red-200 px-3 py-1.5 rounded shadow-sm hover:bg-red-50"
+                           >
+                             <Trash2 size={16} /> 
+                             <span>Excluir</span>
+                           </button>
+                       </div>
                     </div>
                   </div>
                 </div>

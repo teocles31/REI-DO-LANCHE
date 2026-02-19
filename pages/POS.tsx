@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Product, OrderItem, PaymentMethod, ProductCategory, Order } from '../types';
+import { Product, OrderItem, PaymentMethod, ProductCategory, Order, Customer } from '../types';
 import { formatCurrency, generateId, formatDate } from '../utils/formatters';
-import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer, Trash2 } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer, Trash2, Users } from 'lucide-react';
 import { MoneyInput } from '../components/MoneyInput';
 
 export const POS: React.FC = () => {
-  const { products, processOrder, customers, orders, deleteOrder } = useApp();
+  const { products, processOrder, customers, orders, deleteOrder, saveCustomer } = useApp();
   const [activeTab, setActiveTab] = useState<'new_order' | 'history'>('new_order');
 
   // New Order State
@@ -28,6 +28,12 @@ export const POS: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [pendingComplements, setPendingComplements] = useState<Record<string, string[]>>({}); // Key: Title, Value: selected options
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Modal State for Customer Selection
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [isNewCustomerMode, setIsNewCustomerMode] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', phone: '', address: '', reference: '' });
 
   // Printing State
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
@@ -66,16 +72,45 @@ export const POS: React.FC = () => {
   // Categories
   const categories: (ProductCategory | 'Todos')[] = ['Todos', 'Lanches', 'Combos', 'Porções', 'Bebidas', 'Sobremesas', 'Outros'];
 
-  // Customer Lookup by Name
-  const handleNameBlur = () => {
-      if (!customerName) return;
-      // Search case-insensitive
-      const found = customers.find(c => c.name.toLowerCase() === customerName.trim().toLowerCase());
-      if (found) {
-          setPhone(found.phone);
-          if (found.address) setAddress(found.address);
-          if (found.reference) setReference(found.reference);
+  // Customer Selection Logic
+  const filteredCustomers = customers.filter(c => 
+     c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) || 
+     c.phone.includes(customerSearchTerm)
+  );
+
+  const handleSelectCustomer = (customer: Customer) => {
+      setCustomerName(customer.name);
+      setPhone(customer.phone);
+      setAddress(customer.address || '');
+      setReference(customer.reference || '');
+      setIsCustomerModalOpen(false);
+  };
+
+  const handleCreateCustomer = () => {
+      if (!newCustomerForm.name || !newCustomerForm.phone) {
+          alert("Nome e Telefone são obrigatórios.");
+          return;
       }
+      
+      const newCustomer = {
+          name: newCustomerForm.name,
+          phone: newCustomerForm.phone,
+          address: newCustomerForm.address,
+          reference: newCustomerForm.reference
+      };
+      
+      // Save to context DB
+      saveCustomer(newCustomer);
+      
+      // Select for current order
+      setCustomerName(newCustomer.name);
+      setPhone(newCustomer.phone);
+      setAddress(newCustomer.address);
+      setReference(newCustomer.reference);
+      
+      setIsCustomerModalOpen(false);
+      setIsNewCustomerMode(false);
+      setNewCustomerForm({ name: '', phone: '', address: '', reference: '' });
   };
 
   const handleClearHistory = () => {
@@ -560,40 +595,48 @@ export const POS: React.FC = () => {
 
          {/* Customer Info Form (Sticky Bottom) */}
          <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
-             <div className="bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5 relative">
-                 <User size={16} className="text-gray-400 mr-2" />
-                 <input 
-                     className="w-full text-sm outline-none text-gray-700" 
-                     placeholder="Nome do Cliente (Busca)"
-                     value={customerName}
-                     onChange={e => setCustomerName(e.target.value)}
-                     onBlur={handleNameBlur}
-                     list="customer-suggestions"
-                 />
-                 <datalist id="customer-suggestions">
-                    {customers.map(c => (
-                        <option key={c.id} value={c.name} />
-                    ))}
-                 </datalist>
-                 {customerName && !customers.find(c => c.name.toLowerCase() === customerName.toLowerCase()) && (
-                     <span className="absolute right-2 text-xs text-green-600 font-bold bg-green-50 px-2 rounded pointer-events-none">
-                         Novo
-                     </span>
+             {/* Customer Selection Block */}
+             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                 <div className="flex justify-between items-center mb-2">
+                     <div className="flex items-center gap-2 text-blue-800 font-bold text-sm">
+                         <User size={16} />
+                         {customerName ? 'Cliente Selecionado' : 'Identificar Cliente'}
+                     </div>
+                     <button 
+                        onClick={() => {
+                            setIsCustomerModalOpen(true);
+                            setCustomerSearchTerm('');
+                            setIsNewCustomerMode(false);
+                        }}
+                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition"
+                     >
+                         {customerName ? 'Trocar' : 'Selecionar'}
+                     </button>
+                 </div>
+                 
+                 {customerName ? (
+                     <div className="text-sm text-gray-700 space-y-1">
+                         <div className="font-bold">{customerName}</div>
+                         <div className="flex items-center gap-1 text-xs text-gray-500">
+                             <Phone size={12} /> {phone}
+                         </div>
+                         {address && (
+                            <div className="flex items-start gap-1 text-xs text-gray-500">
+                                <MapPin size={12} className="mt-0.5 min-w-[12px]"/> 
+                                <span className="line-clamp-1">{address}</span>
+                            </div>
+                         )}
+                     </div>
+                 ) : (
+                     <div className="text-xs text-blue-400 italic">
+                         Nenhum cliente vinculado.
+                     </div>
                  )}
              </div>
              
              <div className="flex gap-2">
-                 <div className="flex-1 bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5">
-                     <Phone size={16} className="text-gray-400 mr-2" />
-                     <input 
-                         className="w-full text-sm outline-none text-gray-700" 
-                         placeholder="Telefone"
-                         value={phone}
-                         onChange={e => setPhone(e.target.value)}
-                     />
-                 </div>
                  <select 
-                    className="bg-white border border-gray-300 rounded-lg text-sm px-1 py-1.5 outline-none text-gray-700"
+                    className="flex-1 bg-white border border-gray-300 rounded-lg text-sm px-2 py-1.5 outline-none text-gray-700"
                     value={deliveryType}
                     onChange={e => setDeliveryType(e.target.value as any)}
                  >
@@ -601,29 +644,7 @@ export const POS: React.FC = () => {
                      <option value="entrega">Entrega</option>
                      <option value="mesa">Mesa</option>
                  </select>
-             </div>
 
-             {deliveryType === 'entrega' && (
-                 <div className="space-y-2 animate-fade-in">
-                     <div className="bg-white border border-gray-300 rounded-lg flex items-center px-2 py-1.5">
-                        <MapPin size={16} className="text-gray-400 mr-2" />
-                        <input 
-                            className="w-full text-sm outline-none text-gray-700" 
-                            placeholder="Endereço Completo"
-                            value={address}
-                            onChange={e => setAddress(e.target.value)}
-                        />
-                     </div>
-                     <input 
-                        className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none text-gray-700" 
-                        placeholder="Ponto de Referência"
-                        value={reference}
-                        onChange={e => setReference(e.target.value)}
-                    />
-                 </div>
-             )}
-
-             <div className="flex gap-2">
                  <select 
                     className="flex-1 bg-white border border-gray-300 rounded-lg text-sm px-2 py-1.5 outline-none text-gray-700"
                     value={paymentMethod}
@@ -634,17 +655,35 @@ export const POS: React.FC = () => {
                      <option value="Debito">Débito</option>
                      <option value="Credito">Crédito</option>
                  </select>
-                 {paymentMethod === 'Dinheiro' && (
-                     <div className="w-1/3">
-                         <MoneyInput 
-                            placeholder="Troco p/" 
-                            className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none text-gray-700"
-                            value={changeFor}
-                            onChange={setChangeFor}
-                         />
-                     </div>
-                 )}
              </div>
+
+             {deliveryType === 'entrega' && (
+                 <div className="space-y-2 animate-fade-in text-sm">
+                     <input 
+                        className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-gray-700" 
+                        placeholder="Endereço (Caso difira do cadastro)"
+                        value={address}
+                        onChange={e => setAddress(e.target.value)}
+                     />
+                     <input 
+                        className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-gray-700" 
+                        placeholder="Ponto de Referência"
+                        value={reference}
+                        onChange={e => setReference(e.target.value)}
+                    />
+                 </div>
+             )}
+
+             {paymentMethod === 'Dinheiro' && (
+                 <div>
+                     <MoneyInput 
+                        placeholder="Troco p/ R$" 
+                        className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none text-gray-700"
+                        value={changeFor}
+                        onChange={setChangeFor}
+                     />
+                 </div>
+             )}
 
              <div className="border-t border-gray-200 pt-3 mt-2">
                  <div className="flex justify-between items-end mb-3">
@@ -735,6 +774,127 @@ export const POS: React.FC = () => {
                       >
                           Adicionar {formatCurrency(selectedProduct.price)}
                       </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Customer Selection Modal */}
+      {isCustomerModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
+              <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+                  <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                      <h3 className="text-lg font-bold text-gray-800">Identificação do Cliente</h3>
+                      <button onClick={() => setIsCustomerModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                          <Plus size={24} className="rotate-45" /> {/* Close Icon */}
+                      </button>
+                  </div>
+                  
+                  <div className="p-4">
+                      {/* Tabs */}
+                      <div className="flex gap-2 mb-4">
+                          <button 
+                            onClick={() => setIsNewCustomerMode(false)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                !isNewCustomerMode ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                              Buscar Existente
+                          </button>
+                          <button 
+                            onClick={() => setIsNewCustomerMode(true)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isNewCustomerMode ? 'bg-orange-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                              + Novo Cliente
+                          </button>
+                      </div>
+
+                      {isNewCustomerMode ? (
+                          <div className="space-y-3 animate-fade-in">
+                              <div>
+                                  <label className="text-xs font-bold text-gray-600">Nome</label>
+                                  <input 
+                                    className="w-full border p-2 rounded outline-none focus:border-orange-500"
+                                    placeholder="Nome do cliente"
+                                    value={newCustomerForm.name}
+                                    onChange={e => setNewCustomerForm({...newCustomerForm, name: e.target.value})}
+                                    autoFocus
+                                  />
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold text-gray-600">Telefone</label>
+                                  <input 
+                                    className="w-full border p-2 rounded outline-none focus:border-orange-500"
+                                    placeholder="Ex: (00) 00000-0000"
+                                    value={newCustomerForm.phone}
+                                    onChange={e => setNewCustomerForm({...newCustomerForm, phone: e.target.value})}
+                                  />
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold text-gray-600">Endereço</label>
+                                  <input 
+                                    className="w-full border p-2 rounded outline-none focus:border-orange-500"
+                                    placeholder="Rua, Número, Bairro"
+                                    value={newCustomerForm.address}
+                                    onChange={e => setNewCustomerForm({...newCustomerForm, address: e.target.value})}
+                                  />
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold text-gray-600">Referência</label>
+                                  <input 
+                                    className="w-full border p-2 rounded outline-none focus:border-orange-500"
+                                    placeholder="Opcional"
+                                    value={newCustomerForm.reference}
+                                    onChange={e => setNewCustomerForm({...newCustomerForm, reference: e.target.value})}
+                                  />
+                              </div>
+                              <button 
+                                onClick={handleCreateCustomer}
+                                className="w-full bg-orange-600 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-orange-700 mt-2"
+                              >
+                                  Cadastrar e Selecionar
+                              </button>
+                          </div>
+                      ) : (
+                          <div className="space-y-4 animate-fade-in">
+                               <div className="relative">
+                                   <Search className="absolute left-3 top-2.5 text-gray-400" size={18}/>
+                                   <input 
+                                      className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:border-blue-500"
+                                      placeholder="Buscar por nome ou telefone..."
+                                      value={customerSearchTerm}
+                                      onChange={e => setCustomerSearchTerm(e.target.value)}
+                                      autoFocus
+                                   />
+                               </div>
+                               
+                               <div className="h-64 overflow-y-auto border rounded-lg divide-y divide-gray-100">
+                                   {filteredCustomers.length === 0 ? (
+                                       <div className="p-4 text-center text-gray-400 text-sm">
+                                           Nenhum cliente encontrado.
+                                       </div>
+                                   ) : (
+                                       filteredCustomers.map(c => (
+                                           <button 
+                                              key={c.id}
+                                              onClick={() => handleSelectCustomer(c)}
+                                              className="w-full text-left p-3 hover:bg-blue-50 flex justify-between items-center group transition-colors"
+                                           >
+                                               <div>
+                                                   <div className="font-bold text-gray-800">{c.name}</div>
+                                                   <div className="text-xs text-gray-500">{c.phone}</div>
+                                               </div>
+                                               <div className="text-blue-600 opacity-0 group-hover:opacity-100 font-medium text-sm">
+                                                   Selecionar →
+                                               </div>
+                                           </button>
+                                       ))
+                                   )}
+                               </div>
+                          </div>
+                      )}
                   </div>
               </div>
           </div>
