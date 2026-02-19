@@ -195,8 +195,7 @@ export const POS: React.FC = () => {
 
     processOrder(newOrder);
     
-    // Auto-trigger print
-    setOrderToPrint(newOrder);
+    // Auto-trigger print removed
     
     setIsCheckoutSuccess(true);
     
