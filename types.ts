@@ -27,6 +27,17 @@ export interface Product {
   marginPercent?: number;
 }
 
+export interface Employee {
+  id: string;
+  name: string;
+  role: string; // Cargo (e.g. Chapeiro, Atendente)
+  baseSalary: number; // Salário Base
+  admissionDate: string;
+  pixKey?: string;
+  phone?: string;
+  active: boolean;
+}
+
 export type PaymentMethod = 'Dinheiro' | 'PIX' | 'Debito' | 'Credito';
 export type RevenueCategory = 'Balcao' | 'Delivery' | 'App' | 'Outros';
 
@@ -63,6 +74,7 @@ export interface Expense {
   isRecurring: boolean;
   status: 'paid' | 'pending';
   paymentMethod: PaymentMethod;
+  employeeId?: string; // Vínculo opcional com funcionário
 }
 
 export interface DashboardStats {

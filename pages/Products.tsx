@@ -59,12 +59,11 @@ export const Products: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Cardápio & Engenharia de Menu</h2>
-          <p className="text-gray-500">Defina os produtos, suas receitas e analise as margens.</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800">Cardápio</h2>
         </div>
         <button 
           onClick={() => setIsFormOpen(true)}
-          className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-700 transition"
+          className="bg-orange-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-700 transition text-sm md:text-base"
         >
           <Plus size={18} />
           <span>Novo Produto</span>
@@ -73,7 +72,7 @@ export const Products: React.FC = () => {
 
       {/* Product Creation Form */}
       {isFormOpen && (
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 animate-fade-in">
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-200 animate-fade-in">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Novo Produto</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -108,9 +107,9 @@ export const Products: React.FC = () => {
 
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h4 className="font-semibold text-gray-700 mb-2">Composição (Receita)</h4>
-              <div className="flex space-x-2 mb-3">
+              <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mb-3">
                 <select 
-                  className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+                  className="flex-1 border border-gray-300 rounded-lg px-2 py-2 md:py-1 text-sm bg-white"
                   value={selectedIngId}
                   onChange={e => setSelectedIngId(e.target.value)}
                 >
@@ -119,18 +118,20 @@ export const Products: React.FC = () => {
                     <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
                   ))}
                 </select>
-                <input 
-                  type="number" step="0.001" placeholder="Qtd"
-                  className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm"
-                  value={selectedQty}
-                  onChange={e => setSelectedQty(parseFloat(e.target.value))}
-                />
-                <button 
-                  onClick={handleAddIngredient}
-                  className="bg-green-600 text-white p-1.5 rounded hover:bg-green-700"
-                >
-                  <Plus size={16} />
-                </button>
+                <div className="flex gap-2">
+                    <input 
+                    type="number" step="0.001" placeholder="Qtd"
+                    className="w-20 flex-1 md:flex-none border border-gray-300 rounded-lg px-2 py-2 md:py-1 text-sm"
+                    value={selectedQty}
+                    onChange={e => setSelectedQty(parseFloat(e.target.value))}
+                    />
+                    <button 
+                    onClick={handleAddIngredient}
+                    className="bg-green-600 text-white p-2 md:p-1.5 rounded hover:bg-green-700"
+                    >
+                    <Plus size={16} />
+                    </button>
+                </div>
               </div>
               
               <ul className="space-y-2 max-h-40 overflow-y-auto">
@@ -160,7 +161,7 @@ export const Products: React.FC = () => {
                onClick={handleSaveProduct}
                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
              >
-               Salvar Produto
+               Salvar
              </button>
           </div>
         </div>
@@ -177,24 +178,29 @@ export const Products: React.FC = () => {
           return (
             <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all">
               <div 
-                className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                className="p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:bg-gray-50 gap-4 md:gap-0"
                 onClick={() => toggleExpand(product.id)}
               >
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-800">{product.name}</h3>
-                  <p className="text-gray-500 text-sm">{product.description}</p>
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-lg font-bold text-gray-800">{product.name}</h3>
+                    <div className="text-gray-400 md:hidden">
+                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </div>
+                  </div>
+                  <p className="text-gray-500 text-sm mt-1">{product.description}</p>
                 </div>
                 
-                <div className="flex items-center space-x-8 mr-4">
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Preço Venda</p>
+                <div className="flex items-center justify-between md:space-x-8 md:mr-4 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
+                  <div className="text-left md:text-right">
+                    <p className="text-xs text-gray-500">Venda</p>
                     <p className="font-bold text-gray-900">{formatCurrency(product.price)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Custo Total</p>
+                  <div className="text-left md:text-right">
+                    <p className="text-xs text-gray-500">Custo</p>
                     <p className="font-bold text-red-600">{formatCurrency(cost)}</p>
                   </div>
-                  <div className="text-right hidden md:block">
+                  <div className="text-right">
                      <p className="text-xs text-gray-500">Margem</p>
                      <div className={`font-bold ${marginPercent < 30 ? 'text-orange-500' : 'text-green-600'}`}>
                        {formatPercent(marginPercent)}
@@ -202,14 +208,14 @@ export const Products: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="text-gray-400">
+                <div className="text-gray-400 hidden md:block">
                   {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </div>
               </div>
 
               {isExpanded && (
                 <div className="bg-gray-50 p-4 border-t border-gray-100">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Detalhamento de Custos:</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Detalhamento:</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ul className="space-y-1">
                       {product.ingredients.map((item, idx) => {
@@ -225,12 +231,12 @@ export const Products: React.FC = () => {
                     </ul>
                     <div className="flex flex-col justify-end items-end space-y-2">
                        <div className="text-right text-sm">
-                          <span className="text-gray-500">Lucro Bruto por Unidade:</span>
+                          <span className="text-gray-500">Lucro Bruto:</span>
                           <span className="ml-2 font-bold text-green-600">{formatCurrency(margin)}</span>
                        </div>
                        <button 
                          onClick={(e) => { e.stopPropagation(); deleteProduct(product.id); }}
-                         className="flex items-center space-x-1 text-red-500 text-sm hover:text-red-700 mt-4"
+                         className="flex items-center space-x-1 text-red-500 text-sm hover:text-red-700 mt-4 bg-white border border-red-200 px-3 py-1.5 rounded shadow-sm"
                        >
                          <Trash2 size={16} /> 
                          <span>Excluir Produto</span>

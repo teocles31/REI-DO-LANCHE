@@ -138,25 +138,25 @@ export const Inventory: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-10">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Estoque de Insumos</h2>
-          <p className="text-gray-500">Gerencie ingredientes, custos e perdas</p>
+          <h2 className="text-2xl font-bold text-gray-800">Estoque</h2>
+          <p className="text-gray-500">Gerencie ingredientes e custos</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <button 
             onClick={openLossModal}
-            className="bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-200 transition"
+            className="flex-1 md:flex-none bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-red-200 transition"
             >
             <ArrowDownCircle size={18} />
-            <span>Lançar Perda</span>
+            <span>Perda</span>
             </button>
             <button 
             onClick={() => openModal()}
-            className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-orange-700 transition"
+            className="flex-1 md:flex-none bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-orange-700 transition"
             >
             <Plus size={18} />
-            <span>Novo Insumo</span>
+            <span>Novo Item</span>
             </button>
         </div>
       </div>
@@ -183,61 +183,63 @@ export const Inventory: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 border-b border-gray-200 text-sm">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold text-gray-700 w-1/3">Nome</th>
-                    <th className="px-6 py-4 font-semibold text-gray-700 text-right">Custo Unit.</th>
-                    <th className="px-6 py-4 font-semibold text-gray-700 text-center">Estoque</th>
-                    <th className="px-6 py-4 font-semibold text-gray-700 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-sm">
-                  {categoryItems.map((ing) => {
-                      const status = getStockStatus(ing.stockQuantity, ing.minStock);
-                      return (
-                          <tr key={ing.id} className={`hover:bg-gray-50 ${status === 'warning' ? 'bg-orange-50' : ''}`}>
-                              <td className="px-6 py-4 font-medium text-gray-900">
-                                {ing.name}
-                                {status !== 'ok' && (
-                                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                                    Baixo
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 text-right text-gray-700">
-                              {formatCurrency(ing.costPerUnit)} / {ing.unit}
-                              </td>
-                              <td className="px-6 py-4 text-center">
-                              <div className="flex items-center justify-center space-x-2">
-                                  <span className={`font-bold ${status === 'critical' ? 'text-red-600' : status === 'warning' ? 'text-orange-600' : 'text-gray-700'}`}>
-                                  {ing.stockQuantity} {ing.unit}
-                                  </span>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                  <thead className="bg-gray-50 border-b border-gray-200 text-sm">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold text-gray-700 w-1/3">Nome</th>
+                      <th className="px-6 py-4 font-semibold text-gray-700 text-right">Custo Unit.</th>
+                      <th className="px-6 py-4 font-semibold text-gray-700 text-center">Estoque</th>
+                      <th className="px-6 py-4 font-semibold text-gray-700 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-sm">
+                    {categoryItems.map((ing) => {
+                        const status = getStockStatus(ing.stockQuantity, ing.minStock);
+                        return (
+                            <tr key={ing.id} className={`hover:bg-gray-50 ${status === 'warning' ? 'bg-orange-50' : ''}`}>
+                                <td className="px-6 py-4 font-medium text-gray-900">
+                                  {ing.name}
                                   {status !== 'ok' && (
-                                  <span title={`Estoque Mínimo: ${ing.minStock}`}>
-                                    <AlertTriangle size={16} className={status === 'critical' ? 'text-red-500' : 'text-orange-500'} />
-                                  </span>
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                      Baixo
+                                    </span>
                                   )}
-                              </div>
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                              <div className="flex justify-end space-x-2">
-                                  <button onClick={() => openEntryModal(ing)} className="p-2 text-green-600 hover:bg-green-50 rounded" title="Lançar Entrada">
-                                      <ArrowUpCircle size={16} />
-                                  </button>
-                                  <button onClick={() => openModal(ing)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
-                                      <Edit2 size={16} />
-                                  </button>
-                                  <button onClick={() => deleteIngredient(ing.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Excluir">
-                                      <Trash2 size={16} />
-                                  </button>
-                              </div>
-                              </td>
-                          </tr>
-                      );
-                  })}
-                </tbody>
-              </table>
+                                </td>
+                                <td className="px-6 py-4 text-right text-gray-700">
+                                {formatCurrency(ing.costPerUnit)} / {ing.unit}
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                <div className="flex items-center justify-center space-x-2">
+                                    <span className={`font-bold ${status === 'critical' ? 'text-red-600' : status === 'warning' ? 'text-orange-600' : 'text-gray-700'}`}>
+                                    {ing.stockQuantity} {ing.unit}
+                                    </span>
+                                    {status !== 'ok' && (
+                                    <span title={`Estoque Mínimo: ${ing.minStock}`}>
+                                      <AlertTriangle size={16} className={status === 'critical' ? 'text-red-500' : 'text-orange-500'} />
+                                    </span>
+                                    )}
+                                </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end space-x-2">
+                                    <button onClick={() => openEntryModal(ing)} className="p-2 text-green-600 hover:bg-green-50 rounded" title="Lançar Entrada">
+                                        <ArrowUpCircle size={16} />
+                                    </button>
+                                    <button onClick={() => openModal(ing)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button onClick={() => deleteIngredient(ing.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Excluir">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
@@ -245,8 +247,8 @@ export const Inventory: React.FC = () => {
 
       {/* Ingredient Modal (Edit/Create + History) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 my-8">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 my-8 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4 text-gray-800">{editingId ? 'Editar Insumo' : 'Novo Insumo'}</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -342,7 +344,7 @@ export const Inventory: React.FC = () => {
                   type="submit" 
                   className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
                 >
-                  Salvar Dados
+                  Salvar
                 </button>
               </div>
             </form>
@@ -375,13 +377,13 @@ export const Inventory: React.FC = () => {
                                                     h.type === 'entry' ? 'bg-green-100 text-green-700' : 
                                                     h.type === 'loss' ? 'bg-red-100 text-red-700' : 'bg-gray-200'
                                                 }`}>
-                                                    {h.type === 'entry' ? 'Entrada' : h.type === 'loss' ? 'Perda' : 'Ajuste'}
+                                                    {h.type === 'entry' ? 'E' : h.type === 'loss' ? 'P' : 'A'}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-2 font-medium text-gray-900">
                                                 {h.type === 'entry' ? '+' : '-'}{h.quantity}
                                             </td>
-                                            <td className="px-3 py-2 text-gray-500">{h.reason}</td>
+                                            <td className="px-3 py-2 text-gray-500 truncate max-w-[100px]">{h.reason}</td>
                                         </tr>
                                     ))
                                 )}
@@ -396,7 +398,7 @@ export const Inventory: React.FC = () => {
 
       {/* Stock Entry Modal */}
       {isEntryModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
                 <h3 className="text-xl font-bold mb-4 text-green-600 flex items-center gap-2">
                     <ArrowUpCircle size={24} /> Entrada de Estoque
@@ -424,7 +426,7 @@ export const Inventory: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Novo Custo Unitário (Opcional)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Novo Custo Unitário</label>
                         <input 
                             type="number" step="0.01" min="0"
                             placeholder="Mantenha 0 para não alterar"
@@ -432,7 +434,6 @@ export const Inventory: React.FC = () => {
                             value={entryData.costPerUnit}
                             onChange={e => setEntryData({...entryData, costPerUnit: parseFloat(e.target.value)})}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Se preenchido, atualizará o custo unitário do insumo.</p>
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Motivo / Observação</label>
@@ -455,7 +456,7 @@ export const Inventory: React.FC = () => {
                         type="submit" 
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                         >
-                        Confirmar Entrada
+                        Confirmar
                         </button>
                     </div>
                 </form>
@@ -465,9 +466,9 @@ export const Inventory: React.FC = () => {
 
       {/* Loss Modal */}
       {isLossModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-                <h3 className="text-xl font-bold mb-4 text-red-600">Registrar Perda de Estoque</h3>
+                <h3 className="text-xl font-bold mb-4 text-red-600">Registrar Perda</h3>
                 <form onSubmit={handleLossSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Produto/Insumo</label>
@@ -478,12 +479,12 @@ export const Inventory: React.FC = () => {
                         >
                             <option value="">Selecione...</option>
                             {ingredients.map(ing => (
-                                <option key={ing.id} value={ing.id}>{ing.name} (Atual: {ing.stockQuantity} {ing.unit})</option>
+                                <option key={ing.id} value={ing.id}>{ing.name}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade Perdida</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Qtd Perdida</label>
                         <input 
                             type="number" step="0.001" min="0" required
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
@@ -496,7 +497,7 @@ export const Inventory: React.FC = () => {
                         <input 
                             type="text" 
                             required
-                            placeholder="Ex: Vencimento, Avaria..."
+                            placeholder="Ex: Vencimento..."
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                             value={lossData.reason}
                             onChange={e => setLossData({...lossData, reason: e.target.value})}
@@ -514,7 +515,7 @@ export const Inventory: React.FC = () => {
                         type="submit" 
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                         >
-                        Confirmar Perda
+                        Confirmar
                         </button>
                     </div>
                 </form>

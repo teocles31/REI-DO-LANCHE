@@ -11,15 +11,8 @@ export const Dashboard: React.FC = () => {
   const stats = useMemo(() => {
     const totalRevenue = revenues.reduce((acc, rev) => acc + rev.amount, 0);
     
-    // Only count 'Paid' expenses for cash flow profit, or all for accrual?
-    // Let's assume standard view involves realized expenses for "Caixa" and all for "Competência"
-    // For simplicity, Profit = Revenue - Paid Expenses.
-    // But Expense Total usually includes everything in a management view.
-    // Let's show "Despesas Pagas" and "Despesas Pendentes".
-    
     const paidExpenses = expenses.filter(e => e.status === 'paid').reduce((acc, exp) => acc + exp.amount, 0);
     const pendingExpenses = expenses.filter(e => e.status === 'pending').reduce((acc, exp) => acc + exp.amount, 0);
-    const totalExpenses = paidExpenses; // Cash basis for profit calculation
 
     const cashProfit = totalRevenue - paidExpenses;
     const margin = totalRevenue > 0 ? (cashProfit / totalRevenue) * 100 : 0;
@@ -63,15 +56,15 @@ export const Dashboard: React.FC = () => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#EF4444', '#8B5CF6'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Visão Geral Financeira</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">Visão Geral</h2>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+          <div className="flex justify-between items-start relative z-10">
             <div>
               <p className="text-sm font-medium text-gray-500">Receita Total</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.revenue)}</h3>
@@ -82,7 +75,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-gray-500">Despesas Pagas</p>
@@ -94,7 +87,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-gray-500">A Pagar (Pendente)</p>
@@ -106,7 +99,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-gray-500">Saldo em Caixa</p>
@@ -124,13 +117,13 @@ export const Dashboard: React.FC = () => {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-96">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Fluxo de Caixa (Realizado)</h3>
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 h-80 md:h-96">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Fluxo de Caixa (7 dias)</h3>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" />
-              <YAxis />
+              <XAxis dataKey="name" fontSize={12} />
+              <YAxis fontSize={12} />
               <Tooltip formatter={(value: number) => formatCurrency(value)} />
               <Bar dataKey="revenue" name="Receita" fill="#10B981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="expense" name="Despesa" fill="#EF4444" radius={[4, 4, 0, 0]} />
@@ -138,7 +131,7 @@ export const Dashboard: React.FC = () => {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-96">
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 h-80 md:h-96">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Despesas por Categoria</h3>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -147,7 +140,7 @@ export const Dashboard: React.FC = () => {
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
-                outerRadius={100}
+                outerRadius={80}
                 fill="#8884d8"
                 paddingAngle={5}
                 dataKey="value"

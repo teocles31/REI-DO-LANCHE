@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Ingredient, Product, Revenue, Expense, StockMovement } from '../types';
+import { Ingredient, Product, Revenue, Expense, StockMovement, Employee } from '../types';
 import { generateId } from '../utils/formatters';
 
 interface AppContextProps {
@@ -8,6 +8,7 @@ interface AppContextProps {
   revenues: Revenue[];
   expenses: Expense[];
   stockMovements: StockMovement[];
+  employees: Employee[];
   addIngredient: (ing: Omit<Ingredient, 'id'>) => void;
   updateIngredient: (id: string, ing: Partial<Ingredient>) => void;
   addProduct: (prod: Omit<Product, 'id' | 'totalCost' | 'margin' | 'marginPercent'>) => void;
@@ -21,6 +22,9 @@ interface AppContextProps {
   registerLoss: (ingredientId: string, quantity: number, reason: string) => void;
   addStockEntry: (ingredientId: string, quantity: number, costPerUnit: number, reason?: string) => void;
   getProductCost: (product: Product) => number;
+  addEmployee: (emp: Omit<Employee, 'id'>) => void;
+  updateEmployee: (id: string, emp: Partial<Employee>) => void;
+  deleteEmployee: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -32,6 +36,7 @@ const STORAGE_KEYS = {
   REVENUES: 'reidolanche_revenues',
   EXPENSES: 'reidolanche_expenses',
   STOCK_MOVEMENTS: 'reidolanche_stock_movements',
+  EMPLOYEES: 'reidolanche_employees',
 };
 
 // Seed Data (Used only on first load if storage is empty)
@@ -94,6 +99,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [employees, setEmployees] = useState<Employee[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Persistence Effects: Save to LocalStorage whenever state changes
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.INGREDIENTS, JSON.stringify(ingredients));
@@ -114,6 +124,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.STOCK_MOVEMENTS, JSON.stringify(stockMovements));
   }, [stockMovements]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+  }, [employees]);
 
 
   // Calculate generic cost for a product
@@ -236,6 +250,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, ...prev]);
   };
 
+  // Employee CRUD
+  const addEmployee = (data: Omit<Employee, 'id'>) => {
+    setEmployees(prev => [...prev, { ...data, id: generateId() }]);
+  };
+
+  const updateEmployee = (id: string, data: Partial<Employee>) => {
+    setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...data } : e));
+  };
+
+  const deleteEmployee = (id: string) => {
+    setEmployees(prev => prev.filter(e => e.id !== id));
+  };
+
   return (
     <AppContext.Provider value={{
       ingredients,
@@ -243,6 +270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       revenues,
       expenses,
       stockMovements,
+      employees,
       addIngredient,
       updateIngredient,
       addProduct,
@@ -255,7 +283,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteRevenue,
       registerLoss,
       addStockEntry,
-      getProductCost
+      getProductCost,
+      addEmployee,
+      updateEmployee,
+      deleteEmployee
     }}>
       {children}
     </AppContext.Provider>

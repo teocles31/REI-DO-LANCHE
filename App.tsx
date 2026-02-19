@@ -7,6 +7,7 @@ import { Expenses } from './pages/Expenses';
 import { Products } from './pages/Products';
 import { Inventory } from './pages/Inventory';
 import { Reports } from './pages/Reports';
+import { Employees } from './pages/Employees';
 
 // Simple Auth Component
 const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
@@ -81,6 +82,7 @@ const App: React.FC = () => {
       case 'expenses': return <Expenses />;
       case 'products': return <Products />;
       case 'inventory': return <Inventory />;
+      case 'employees': return <Employees />;
       case 'reports': return <Reports />;
       default: return <Dashboard />;
     }
