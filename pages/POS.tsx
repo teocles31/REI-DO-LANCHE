@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Product, OrderItem, PaymentMethod, ProductCategory, Order, Customer } from '../types';
+import { Product, OrderItem, PaymentMethod, ProductCategory, Order, Customer, ProductAddOn } from '../types';
 import { formatCurrency, generateId, formatDate } from '../utils/formatters';
-import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer, Trash2, Users } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer, Trash2, Users, FileEdit } from 'lucide-react';
 import { MoneyInput } from '../components/MoneyInput';
 
 export const POS: React.FC = () => {
@@ -24,9 +24,11 @@ export const POS: React.FC = () => {
   const [changeFor, setChangeFor] = useState(0);
   const [isCheckoutSuccess, setIsCheckoutSuccess] = useState(false);
 
-  // Modal State for Complements
+  // Modal State for Options (Complements, Add-ons, Observation)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [pendingComplements, setPendingComplements] = useState<Record<string, string[]>>({}); // Key: Title, Value: selected options
+  const [pendingComplements, setPendingComplements] = useState<Record<string, string[]>>({}); 
+  const [pendingAddOns, setPendingAddOns] = useState<ProductAddOn[]>([]);
+  const [pendingObservation, setPendingObservation] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Modal State for Customer Selection
@@ -59,10 +61,8 @@ export const POS: React.FC = () => {
   // Trigger print dialog automatically when orderToPrint is set
   useEffect(() => {
     if (orderToPrint) {
-      // Small delay to ensure React renders the receipt content in the DOM
       const timer = setTimeout(() => {
         window.print();
-        // Clear after printing dialog is closed (or immediately after trigger)
         setOrderToPrint(null); 
       }, 100);
       return () => clearTimeout(timer);
@@ -99,10 +99,8 @@ export const POS: React.FC = () => {
           reference: newCustomerForm.reference
       };
       
-      // Save to context DB
       saveCustomer(newCustomer);
       
-      // Select for current order
       setCustomerName(newCustomer.name);
       setPhone(newCustomer.phone);
       setAddress(newCustomer.address);
@@ -128,10 +126,16 @@ export const POS: React.FC = () => {
   };
 
   // Cart Logic
-  const addToCart = (product: Product, selectedComplements: string[] = []) => {
+  const addToCart = (product: Product, selectedComplements: string[], selectedAddOns: ProductAddOn[], observation: string) => {
+    // Calculate price including add-ons
+    const addOnsTotal = selectedAddOns.reduce((acc, curr) => acc + curr.price, 0);
+    const finalUnitPrice = product.price + addOnsTotal;
+
     const existingItemIndex = cart.findIndex(
         item => item.productId === product.id && 
-        JSON.stringify(item.selectedComplements.sort()) === JSON.stringify(selectedComplements.sort())
+        JSON.stringify(item.selectedComplements.sort()) === JSON.stringify(selectedComplements.sort()) &&
+        JSON.stringify(item.selectedAddOns.map(a => a.id).sort()) === JSON.stringify(selectedAddOns.map(a => a.id).sort()) &&
+        item.observation === observation
     );
 
     if (existingItemIndex > -1) {
@@ -144,24 +148,25 @@ export const POS: React.FC = () => {
         productId: product.id,
         productName: product.name,
         quantity: 1,
-        unitPrice: product.price,
-        total: product.price,
-        selectedComplements
+        unitPrice: finalUnitPrice,
+        total: finalUnitPrice,
+        selectedComplements,
+        selectedAddOns,
+        observation
       }]);
     }
   };
 
   const handleProductClick = (product: Product) => {
-    if (product.complements && product.complements.length > 0) {
-      setSelectedProduct(product);
-      setPendingComplements({});
-      setIsModalOpen(true);
-    } else {
-      addToCart(product);
-    }
+    // Always open modal to allow observation and extras
+    setSelectedProduct(product);
+    setPendingComplements({});
+    setPendingAddOns([]);
+    setPendingObservation('');
+    setIsModalOpen(true);
   };
 
-  const handleConfirmComplements = () => {
+  const handleConfirmProductOptions = () => {
     if (selectedProduct) {
        // Validation
        for (const comp of (selectedProduct.complements || [])) {
@@ -172,8 +177,8 @@ export const POS: React.FC = () => {
            }
        }
 
-       const allSelected = Object.values(pendingComplements).flat() as string[];
-       addToCart(selectedProduct, allSelected);
+       const allComplements = Object.values(pendingComplements).flat() as string[];
+       addToCart(selectedProduct, allComplements, pendingAddOns, pendingObservation);
        setIsModalOpen(false);
        setSelectedProduct(null);
     }
@@ -191,6 +196,17 @@ export const POS: React.FC = () => {
                   if (max === 1) return { ...prev, [title]: [option] };
                   return prev;
               }
+          }
+      });
+  };
+
+  const handleAddOnToggle = (addon: ProductAddOn) => {
+      setPendingAddOns(prev => {
+          const exists = prev.find(a => a.id === addon.id);
+          if (exists) {
+              return prev.filter(a => a.id !== addon.id);
+          } else {
+              return [...prev, addon];
           }
       });
   };
@@ -235,9 +251,6 @@ export const POS: React.FC = () => {
     };
 
     processOrder(newOrder);
-    
-    // Auto-trigger print removed
-    
     setIsCheckoutSuccess(true);
     
     // Reset Form
@@ -380,6 +393,16 @@ export const POS: React.FC = () => {
                                         + {item.selectedComplements.join(', ')}
                                     </div>
                                 )}
+                                {item.selectedAddOns.length > 0 && (
+                                    <div style={{ fontSize: '6pt', paddingLeft: '10%' }}>
+                                        + Extras: {item.selectedAddOns.map(a => a.name).join(', ')}
+                                    </div>
+                                )}
+                                {item.observation && (
+                                    <div style={{ fontSize: '6pt', paddingLeft: '10%', fontStyle: 'italic' }}>
+                                        Obs: {item.observation}
+                                    </div>
+                                )}
                             </div>
                         ))}
                         <div className="print-divider"></div>
@@ -400,9 +423,6 @@ export const POS: React.FC = () => {
                             Obrigado pela preferência!<br/>
                             Volte sempre.
                         </div>
-                        <div className="print-center" style={{ marginTop: '2mm', fontSize: '6pt' }}>
-                            Sistema Rei do Lanche
-                        </div>
                     </>
                 )}
               </div>
@@ -413,7 +433,7 @@ export const POS: React.FC = () => {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-4 animate-fade-in pb-4 relative">
       
-      {/* Invisible Print Component Container (needed here too if user stays on main tab) */}
+      {/* Invisible Print Component Container */}
       <div id="printable-content">
         {orderToPrint && (
             <>
@@ -445,6 +465,16 @@ export const POS: React.FC = () => {
                                 + {item.selectedComplements.join(', ')}
                             </div>
                         )}
+                        {item.selectedAddOns.length > 0 && (
+                            <div style={{ fontSize: '6pt', paddingLeft: '10%' }}>
+                                + Extras: {item.selectedAddOns.map(a => a.name).join(', ')}
+                            </div>
+                        )}
+                        {item.observation && (
+                            <div style={{ fontSize: '6pt', paddingLeft: '10%', fontStyle: 'italic' }}>
+                                Obs: {item.observation}
+                            </div>
+                        )}
                     </div>
                 ))}
                 <div className="print-divider"></div>
@@ -464,9 +494,6 @@ export const POS: React.FC = () => {
                 <div className="print-center" style={{ marginTop: '4mm' }}>
                     Obrigado pela preferência!<br/>
                     Volte sempre.
-                </div>
-                <div className="print-center" style={{ marginTop: '2mm', fontSize: '6pt' }}>
-                    Sistema Rei do Lanche
                 </div>
             </>
         )}
@@ -570,11 +597,22 @@ export const POS: React.FC = () => {
                          <div className="flex justify-between items-start">
                              <div className="flex-1">
                                  <div className="font-medium text-gray-800">{item.productName}</div>
-                                 {item.selectedComplements.length > 0 && (
-                                     <div className="text-xs text-gray-500 italic">
-                                         + {item.selectedComplements.join(', ')}
-                                     </div>
-                                 )}
+                                 {/* Item Details */}
+                                 <div className="text-xs text-gray-500 space-y-0.5 mt-0.5">
+                                     {item.selectedComplements.length > 0 && (
+                                         <div className="italic">+ {item.selectedComplements.join(', ')}</div>
+                                     )}
+                                     {item.selectedAddOns.length > 0 && (
+                                         <div className="text-orange-600">
+                                            + Extras: {item.selectedAddOns.map(a => a.name).join(', ')}
+                                         </div>
+                                     )}
+                                     {item.observation && (
+                                         <div className="text-blue-600 italic border-l-2 border-blue-200 pl-1 mt-1">
+                                            Obs: {item.observation}
+                                         </div>
+                                     )}
+                                 </div>
                              </div>
                              <div className="font-bold text-gray-900 ml-2">
                                  {formatCurrency(item.total)}
@@ -593,9 +631,8 @@ export const POS: React.FC = () => {
              )}
          </div>
 
-         {/* Customer Info Form (Sticky Bottom) */}
+         {/* Customer Info Form */}
          <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
-             {/* Customer Selection Block */}
              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                  <div className="flex justify-between items-center mb-2">
                      <div className="flex items-center gap-2 text-blue-800 font-bold text-sm">
@@ -661,7 +698,7 @@ export const POS: React.FC = () => {
                  <div className="space-y-2 animate-fade-in text-sm">
                      <input 
                         className="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-gray-700" 
-                        placeholder="Endereço (Caso difira do cadastro)"
+                        placeholder="Endereço"
                         value={address}
                         onChange={e => setAddress(e.target.value)}
                      />
@@ -690,7 +727,6 @@ export const POS: React.FC = () => {
                      <span className="text-gray-600 font-medium">Total</span>
                      <span className="text-2xl font-bold text-gray-900">{formatCurrency(totalAmount)}</span>
                  </div>
-                 {/* Display Change Calculation if applicable */}
                  {paymentMethod === 'Dinheiro' && changeFor > totalAmount && (
                      <div className="flex justify-between items-center mb-3 text-sm">
                          <span className="text-gray-500">Troco a devolver:</span>
@@ -720,15 +756,17 @@ export const POS: React.FC = () => {
           </div>
       )}
 
-      {/* Complements Modal */}
+      {/* Options Modal (Complements + Add-ons + Observation) */}
       {isModalOpen && selectedProduct && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
               <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto flex flex-col">
                   <div className="p-4 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
                       <h3 className="font-bold text-lg text-gray-800">{selectedProduct.name}</h3>
-                      <p className="text-sm text-gray-500">Selecione os complementos</p>
+                      <p className="text-sm text-gray-500">{formatCurrency(selectedProduct.price)} (Base)</p>
                   </div>
-                  <div className="p-4 space-y-6">
+                  
+                  <div className="p-4 space-y-6 flex-1 overflow-y-auto">
+                      {/* Complements */}
                       {(selectedProduct.complements || []).map((comp, idx) => {
                           const currentSelected = pendingComplements[comp.title] || [];
                           return (
@@ -760,7 +798,54 @@ export const POS: React.FC = () => {
                             </div>
                           );
                       })}
+
+                      {/* Add-ons (Acréscimos) */}
+                      {(selectedProduct.addOns && selectedProduct.addOns.length > 0) && (
+                          <div>
+                              <div className="flex justify-between items-center mb-2">
+                                  <h4 className="font-bold text-gray-700">Acréscimos</h4>
+                                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Opcional</span>
+                              </div>
+                              <div className="space-y-2">
+                                  {selectedProduct.addOns.map(addon => {
+                                      const isSelected = pendingAddOns.some(a => a.id === addon.id);
+                                      return (
+                                          <button
+                                              key={addon.id}
+                                              onClick={() => handleAddOnToggle(addon)}
+                                              className={`w-full flex justify-between items-center text-sm py-2 px-3 rounded-lg border transition-all ${
+                                                  isSelected 
+                                                  ? 'bg-yellow-50 border-yellow-500 ring-1 ring-yellow-500' 
+                                                  : 'bg-white border-gray-300 hover:bg-gray-50'
+                                              }`}
+                                          >
+                                              <span className={isSelected ? 'font-bold text-gray-800' : 'text-gray-600'}>{addon.name}</span>
+                                              <span className="font-semibold text-green-600">+{formatCurrency(addon.price)}</span>
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Observation */}
+                      <div>
+                          <div className="flex justify-between items-center mb-2">
+                              <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                                  <FileEdit size={16} /> Observação
+                              </h4>
+                              <span className="text-xs text-gray-400">Opcional</span>
+                          </div>
+                          <textarea 
+                              className="w-full border border-gray-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                              rows={3}
+                              placeholder="Ex: Sem cebola, caprichar no molho..."
+                              value={pendingObservation}
+                              onChange={e => setPendingObservation(e.target.value)}
+                          />
+                      </div>
                   </div>
+
                   <div className="p-4 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
                       <button 
                         onClick={() => setIsModalOpen(false)}
@@ -769,10 +854,13 @@ export const POS: React.FC = () => {
                           Cancelar
                       </button>
                       <button 
-                        onClick={handleConfirmComplements}
-                        className="flex-1 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 shadow-md"
+                        onClick={handleConfirmProductOptions}
+                        className="flex-1 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 shadow-md flex justify-center items-center gap-1"
                       >
-                          Adicionar {formatCurrency(selectedProduct.price)}
+                          Adicionar 
+                          <span>
+                              {formatCurrency(selectedProduct.price + pendingAddOns.reduce((acc, curr) => acc + curr.price, 0))}
+                          </span>
                       </button>
                   </div>
               </div>

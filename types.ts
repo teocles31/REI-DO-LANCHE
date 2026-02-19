@@ -24,6 +24,12 @@ export interface ProductComplement {
   required: boolean;
 }
 
+export interface ProductAddOn {
+  id: string;
+  name: string; // Ex: "Ovo Extra"
+  price: number; // Ex: 2.00
+}
+
 export type ProductCategory = 'Lanches' | 'Bebidas' | 'Combos' | 'Porções' | 'Sobremesas' | 'Outros';
 
 export interface Product {
@@ -31,9 +37,10 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  category: ProductCategory; // Novo campo
+  category: ProductCategory;
   ingredients: ProductIngredient[];
   complements?: ProductComplement[]; 
+  addOns?: ProductAddOn[]; // Novos Acréscimos
   totalCost?: number;
   margin?: number;
   marginPercent?: number;
@@ -124,20 +131,22 @@ export interface OrderItem {
   productId: string;
   productName: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number; // Preço base + soma dos acréscimos
   total: number;
-  selectedComplements: string[]; // Lista de complementos escolhidos (strings)
+  selectedComplements: string[]; 
+  selectedAddOns: ProductAddOn[]; // Acréscimos selecionados
+  observation?: string; // Observação manual
 }
 
 export interface Order {
   id: string;
   customerName: string;
-  customerPhone?: string; // Novo
+  customerPhone?: string; 
   deliveryType: 'retirada' | 'entrega' | 'mesa';
   address?: string;
   reference?: string;
   paymentMethod: PaymentMethod;
-  changeFor?: number; // Troco para
+  changeFor?: number; 
   items: OrderItem[];
   totalAmount: number;
   date: string;
