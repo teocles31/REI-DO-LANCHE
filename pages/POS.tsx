@@ -6,7 +6,7 @@ import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, Hi
 import { MoneyInput } from '../components/MoneyInput';
 
 export const POS: React.FC = () => {
-  const { products, processOrder, customers, orders } = useApp();
+  const { products, processOrder, customers, orders, deleteOrder } = useApp();
   const [activeTab, setActiveTab] = useState<'new_order' | 'history'>('new_order');
 
   // New Order State
@@ -84,6 +84,12 @@ export const POS: React.FC = () => {
           setHistoryClearTime(now);
           localStorage.setItem('pos_history_clear_time', now.toString());
       }
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    if (window.confirm("ATENÇÃO: Deseja excluir este pedido permanentemente?\n\nEsta ação irá:\n1. Estornar o valor do caixa (Financeiro).\n2. Devolver os itens ao estoque.\n3. Remover dos relatórios de vendas.")) {
+        deleteOrder(orderId);
+    }
   };
 
   // Cart Logic
@@ -283,13 +289,22 @@ export const POS: React.FC = () => {
                                          </div>
                                      </td>
                                      <td className="px-6 py-3 text-center">
-                                         <button 
-                                            onClick={() => setOrderToPrint(order)}
-                                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition-colors flex items-center justify-center mx-auto"
-                                            title="Imprimir Cupom"
-                                         >
-                                             <Printer size={18} />
-                                         </button>
+                                         <div className="flex justify-center gap-2">
+                                             <button 
+                                                onClick={() => setOrderToPrint(order)}
+                                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition-colors flex items-center justify-center"
+                                                title="Imprimir Cupom"
+                                             >
+                                                 <Printer size={18} />
+                                             </button>
+                                              <button 
+                                                onClick={() => handleDeleteOrder(order.id)}
+                                                className="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg transition-colors flex items-center justify-center"
+                                                title="Excluir Pedido"
+                                             >
+                                                 <Trash2 size={18} />
+                                             </button>
+                                         </div>
                                      </td>
                                  </tr>
                              ))

@@ -29,6 +29,7 @@ interface AppContextProps {
   updateEmployee: (id: string, emp: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
   processOrder: (order: Order) => void;
+  deleteOrder: (orderId: string) => void;
   saveCustomer: (customerData: Omit<Customer, 'id' | 'lastOrderDate' | 'totalOrders'>) => void;
 }
 
@@ -358,6 +359,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
     });
   };
 
+  const deleteOrder = (orderId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // 1. REVERTER ESTOQUE (Devolver itens)
+    const stockRestoration = new Map<string, number>();
+    
+    // Recalcular ingredientes usados no pedido
+    order.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+            product.ingredients.forEach(ing => {
+                const totalQty = ing.quantity * item.quantity;
+                const current = stockRestoration.get(ing.ingredientId) || 0;
+                stockRestoration.set(ing.ingredientId, current + totalQty);
+            });
+        }
+    });
+
+    // Atualizar estado de ingredientes (Adicionando de volta)
+    setIngredients(prev => prev.map(ing => {
+        const toRestore = stockRestoration.get(ing.id);
+        if (toRestore) {
+            return { ...ing, stockQuantity: ing.stockQuantity + toRestore };
+        }
+        return ing;
+    }));
+
+    // 2. REMOVER RECEITA FINANCEIRA
+    // Busca pela string padrão gerada no processOrder
+    const orderTag = `Pedido #${order.id.slice(0, 4)}`;
+    setRevenues(prev => prev.filter(r => !r.description.includes(orderTag)));
+
+    // 3. REMOVER HISTÓRICO DE MOVIMENTAÇÃO DE ESTOQUE
+    const reasonTag = `Venda Pedido #${order.id.slice(0, 4)}`;
+    setStockMovements(prev => prev.filter(sm => !sm.reason.includes(reasonTag)));
+
+    // 4. ATUALIZAR ESTATÍSTICAS DO CLIENTE (Opcional, mas consistente)
+    if (order.customerPhone) {
+        setCustomers(prev => prev.map(c => {
+            if (c.phone === order.customerPhone) {
+                return { 
+                    ...c, 
+                    totalOrders: Math.max(0, c.totalOrders - 1) 
+                };
+            }
+            return c;
+        }));
+    }
+
+    // 5. EXCLUIR O PEDIDO DA LISTA
+    setOrders(prev => prev.filter(o => o.id !== orderId));
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -386,6 +441,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
       updateEmployee,
       deleteEmployee,
       processOrder,
+      deleteOrder,
       saveCustomer
     }}>
       {children}
