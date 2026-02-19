@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Product, OrderItem, PaymentMethod, ProductCategory } from '../types';
+import { Product, OrderItem, PaymentMethod, ProductCategory, Order } from '../types';
 import { formatCurrency, generateId, formatDate } from '../utils/formatters';
-import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, CheckCircle, User, MapPin, Phone, History, LayoutGrid, List, Printer } from 'lucide-react';
 import { MoneyInput } from '../components/MoneyInput';
 
 export const POS: React.FC = () => {
@@ -28,6 +28,21 @@ export const POS: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [pendingComplements, setPendingComplements] = useState<Record<string, string[]>>({}); // Key: Title, Value: selected options
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Printing State
+  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+
+  // Trigger print dialog when orderToPrint is set
+  useEffect(() => {
+    if (orderToPrint) {
+      setTimeout(() => {
+        window.print();
+        // Clear after a delay to allow the print dialog to grab the content
+        // In some browsers, clearing it immediately might result in blank pages
+        setTimeout(() => setOrderToPrint(null), 500); 
+      }, 100);
+    }
+  }, [orderToPrint]);
 
   // Filter Products
   const filteredProducts = products.filter(p => {
@@ -141,7 +156,7 @@ export const POS: React.FC = () => {
         return;
     }
 
-    processOrder({
+    const newOrder: Order = {
         id: generateId(),
         date: new Date().toISOString(),
         customerName,
@@ -154,8 +169,13 @@ export const POS: React.FC = () => {
         items: cart,
         totalAmount,
         status: 'completed'
-    });
+    };
 
+    processOrder(newOrder);
+
+    // Auto-open print dialog optionally or just show success
+    // setOrderToPrint(newOrder); 
+    
     setIsCheckoutSuccess(true);
     
     // Reset Form
@@ -173,13 +193,15 @@ export const POS: React.FC = () => {
   if (activeTab === 'history') {
       return (
           <div className="h-full flex flex-col animate-fade-in bg-gray-100">
-              <div className="flex items-center gap-4 mb-4">
-                  <button onClick={() => setActiveTab('new_order')} className="bg-white p-2 rounded-lg shadow-sm text-gray-600 hover:text-orange-600">
-                      ← Voltar ao PDV
-                  </button>
-                  <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                      <History /> Histórico de Pedidos
-                  </h2>
+              <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setActiveTab('new_order')} className="bg-white p-2 rounded-lg shadow-sm text-gray-600 hover:text-orange-600 transition">
+                        ← Voltar ao PDV
+                    </button>
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <History /> Histórico de Pedidos
+                    </h2>
+                  </div>
               </div>
               
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 overflow-y-auto">
@@ -192,11 +214,12 @@ export const POS: React.FC = () => {
                              <th className="px-6 py-4">Pagamento</th>
                              <th className="px-6 py-4 text-right">Total</th>
                              <th className="px-6 py-4 text-center">Itens</th>
+                             <th className="px-6 py-4 text-center">Ações</th>
                          </tr>
                      </thead>
                      <tbody className="divide-y divide-gray-100">
                          {orders.length === 0 ? (
-                             <tr><td colSpan={6} className="text-center py-10 text-gray-400">Nenhum pedido realizado.</td></tr>
+                             <tr><td colSpan={7} className="text-center py-10 text-gray-400">Nenhum pedido realizado.</td></tr>
                          ) : (
                              orders.map(order => (
                                  <tr key={order.id} className="hover:bg-gray-50">
@@ -232,19 +255,92 @@ export const POS: React.FC = () => {
                                              <div title={order.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')} className="cursor-help underline decoration-dotted">ver</div>
                                          </div>
                                      </td>
+                                     <td className="px-6 py-3 text-center">
+                                         <button 
+                                            onClick={() => setOrderToPrint(order)}
+                                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition-colors flex items-center justify-center mx-auto"
+                                            title="Imprimir Cupom"
+                                         >
+                                             <Printer size={18} />
+                                         </button>
+                                     </td>
                                  </tr>
                              ))
                          )}
                      </tbody>
                  </table>
               </div>
+              
+              {/* Invisible Print Component (Only visible in Print Dialog) */}
+              <div id="printable-content">
+                {orderToPrint && (
+                    <>
+                        <div className="print-center print-bold" style={{ fontSize: '10pt', marginBottom: '2mm' }}>REI DO LANCHE</div>
+                        <div className="print-center">Pedido: #{orderToPrint.id.slice(0,4)}</div>
+                        <div className="print-center">{new Date(orderToPrint.date).toLocaleString('pt-BR')}</div>
+                        <div className="print-divider"></div>
+                        <div className="print-left">
+                           Cliente: {orderToPrint.customerName}<br/>
+                           Tel: {orderToPrint.customerPhone || 'N/A'}<br/>
+                           Tipo: {orderToPrint.deliveryType.toUpperCase()}
+                        </div>
+                        {orderToPrint.deliveryType === 'entrega' && (
+                             <div className="print-left" style={{ marginTop: '1mm' }}>
+                                 End: {orderToPrint.address}<br/>
+                                 Ref: {orderToPrint.reference}
+                             </div>
+                        )}
+                        <div className="print-divider"></div>
+                        {orderToPrint.items.map((item, i) => (
+                            <div key={i} style={{ marginBottom: '1mm' }}>
+                                <div className="print-row">
+                                    <span style={{ width: '10%' }}>{item.quantity}x</span>
+                                    <span style={{ width: '65%' }}>{item.productName}</span>
+                                    <span style={{ width: '25%', textAlign: 'right' }}>{formatCurrency(item.total).replace('R$', '').trim()}</span>
+                                </div>
+                                {item.selectedComplements.length > 0 && (
+                                    <div style={{ fontSize: '6pt', paddingLeft: '10%' }}>
+                                        + {item.selectedComplements.join(', ')}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        <div className="print-divider"></div>
+                        <div className="print-row print-bold" style={{ fontSize: '8pt' }}>
+                            <span>TOTAL:</span>
+                            <span>{formatCurrency(orderToPrint.totalAmount)}</span>
+                        </div>
+                        <div className="print-divider"></div>
+                        <div className="print-left">
+                            Pagamento: {orderToPrint.paymentMethod}<br/>
+                            {orderToPrint.paymentMethod === 'Dinheiro' && orderToPrint.changeFor && (
+                                <>Troco para: {formatCurrency(orderToPrint.changeFor)}<br/>
+                                  Devolver: {formatCurrency(orderToPrint.changeFor - orderToPrint.totalAmount)}
+                                </>
+                            )}
+                        </div>
+                        <div className="print-center" style={{ marginTop: '4mm' }}>
+                            Obrigado pela preferência!<br/>
+                            Volte sempre.
+                        </div>
+                        <div className="print-center" style={{ marginTop: '2mm', fontSize: '6pt' }}>
+                            Sistema Rei do Lanche
+                        </div>
+                    </>
+                )}
+              </div>
           </div>
       );
   }
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-4 animate-fade-in pb-4">
+    <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-4 animate-fade-in pb-4 relative">
       
+      {/* Invisible Print Component Container (needed here too if user refreshes page) */}
+      {/* We use a portal or just place it in History tab. But if user stays on main tab, it won't render. 
+          The History tab renders it. If you want to print from New Order success, we need it here too. 
+          Currently, requested feature is "Print from History", so it's handled in the block above. */}
+
       {/* Left: Product Catalog */}
       <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
          {/* Top Bar: Search & Categories */}
@@ -254,8 +350,12 @@ export const POS: React.FC = () => {
                     <LayoutGrid size={20} className="text-orange-600" />
                     <h2 className="font-bold text-gray-800">Catálogo</h2>
                  </div>
-                 <button onClick={() => setActiveTab('history')} className="text-sm flex items-center gap-1 text-blue-600 hover:underline">
-                     <List size={16} /> Ver Histórico
+                 <button 
+                    onClick={() => setActiveTab('history')} 
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all font-medium text-sm"
+                 >
+                     <List size={18} /> 
+                     <span>Ver Histórico</span>
                  </button>
              </div>
              <div className="flex gap-2">
