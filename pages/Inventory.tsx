@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { Ingredient, UnitType } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Plus, Trash2, Edit2, AlertTriangle, ArrowDownCircle, Package, Coffee, Box, Layers, History, ArrowUpCircle } from 'lucide-react';
+import { MoneyInput } from '../components/MoneyInput';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 
 export const Inventory: React.FC = () => {
   const { ingredients, stockMovements, addIngredient, updateIngredient, deleteIngredient, registerLoss, addStockEntry } = useApp();
@@ -10,6 +12,11 @@ export const Inventory: React.FC = () => {
   const [isLossModalOpen, setIsLossModalOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Admin Auth
+  const [authOpen, setAuthOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<() => void>(() => {});
+  const [actionTitle, setActionTitle] = useState("Autorizar Ação");
 
   // Ingredient Form State
   const [formData, setFormData] = useState<Omit<Ingredient, 'id'>>({
@@ -37,21 +44,41 @@ export const Inventory: React.FC = () => {
     reason: 'Reposição'
   });
 
+  const requestAuth = (title: string, action: () => void) => {
+    setActionTitle(title);
+    setPendingAction(() => action);
+    setAuthOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      updateIngredient(editingId, formData);
+      // Protecting Edit
+      requestAuth("Salvar Alterações", () => {
+         updateIngredient(editingId, formData);
+         closeModal();
+      });
     } else {
+      // Adding new is allowed
       addIngredient(formData);
+      closeModal();
     }
-    closeModal();
+  };
+
+  const handleDelete = (id: string) => {
+    requestAuth("Excluir Item", () => deleteIngredient(id));
   };
 
   const handleLossSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (lossData.ingredientId && lossData.quantity > 0) {
-        registerLoss(lossData.ingredientId, lossData.quantity, lossData.reason);
-        closeLossModal();
+        // Loss implies "removing" stock, but usually operational. 
+        // Request assumes "remove item" or "change value" needs password. 
+        // Let's protect Loss as it affects stock value significantly.
+        requestAuth("Registrar Perda", () => {
+            registerLoss(lossData.ingredientId, lossData.quantity, lossData.reason);
+            closeLossModal();
+        });
     }
   };
 
@@ -138,6 +165,13 @@ export const Inventory: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-10">
+      <AdminAuthModal 
+        isOpen={authOpen} 
+        onClose={() => setAuthOpen(false)} 
+        onConfirm={pendingAction}
+        actionTitle={actionTitle}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Estoque</h2>
@@ -229,7 +263,7 @@ export const Inventory: React.FC = () => {
                                     <button onClick={() => openModal(ing)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
                                         <Edit2 size={16} />
                                     </button>
-                                    <button onClick={() => deleteIngredient(ing.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Excluir">
+                                    <button onClick={() => handleDelete(ing.id)} className="p-2 text-red-600 hover:bg-red-50 rounded" title="Excluir">
                                         <Trash2 size={16} />
                                     </button>
                                 </div>
@@ -293,20 +327,20 @@ export const Inventory: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Custo Unit. (R$)</label>
-                  <input 
-                    type="number" step="0.01" min="0" required
+                  <MoneyInput 
+                    required
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                     value={formData.costPerUnit}
-                    onChange={e => setFormData({...formData, costPerUnit: parseFloat(e.target.value)})}
+                    onChange={val => setFormData({...formData, costPerUnit: val})}
                   />
                 </div>
                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Preço Saída (R$)</label>
-                  <input 
-                    type="number" step="0.01" min="0" required
+                  <MoneyInput 
+                    required
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                     value={formData.exitPrice}
-                    onChange={e => setFormData({...formData, exitPrice: parseFloat(e.target.value)})}
+                    onChange={val => setFormData({...formData, exitPrice: val})}
                   />
                 </div>
               </div>
@@ -427,12 +461,11 @@ export const Inventory: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Novo Custo Unitário</label>
-                        <input 
-                            type="number" step="0.01" min="0"
-                            placeholder="Mantenha 0 para não alterar"
+                        <MoneyInput 
+                            placeholder="R$ 0,00"
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                             value={entryData.costPerUnit}
-                            onChange={e => setEntryData({...entryData, costPerUnit: parseFloat(e.target.value)})}
+                            onChange={val => setEntryData({...entryData, costPerUnit: val})}
                         />
                     </div>
                      <div>

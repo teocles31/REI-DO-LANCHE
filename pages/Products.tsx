@@ -3,11 +3,17 @@ import { useApp } from '../context/AppContext';
 import { Product, ProductIngredient } from '../types';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { MoneyInput } from '../components/MoneyInput';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 
 export const Products: React.FC = () => {
   const { products, ingredients, addProduct, deleteProduct, getProductCost } = useApp();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+
+  // Admin Auth
+  const [authOpen, setAuthOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<() => void>(() => {});
 
   // New Product State
   const [newProduct, setNewProduct] = useState<{
@@ -51,12 +57,24 @@ export const Products: React.FC = () => {
     }
   };
 
+  const handleDelete = (id: string) => {
+    setPendingAction(() => () => deleteProduct(id));
+    setAuthOpen(true);
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedProductId(expandedProductId === id ? null : id);
   };
 
   return (
     <div className="space-y-6">
+      <AdminAuthModal 
+        isOpen={authOpen} 
+        onClose={() => setAuthOpen(false)} 
+        onConfirm={pendingAction}
+        actionTitle="Excluir Produto"
+      />
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Cardápio</h2>
@@ -96,11 +114,10 @@ export const Products: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Preço de Venda (R$)</label>
-                <input 
-                  type="number" step="0.01"
+                <MoneyInput 
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                   value={newProduct.price}
-                  onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
+                  onChange={val => setNewProduct({...newProduct, price: val})}
                 />
               </div>
             </div>
@@ -235,7 +252,7 @@ export const Products: React.FC = () => {
                           <span className="ml-2 font-bold text-green-600">{formatCurrency(margin)}</span>
                        </div>
                        <button 
-                         onClick={(e) => { e.stopPropagation(); deleteProduct(product.id); }}
+                         onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}
                          className="flex items-center space-x-1 text-red-500 text-sm hover:text-red-700 mt-4 bg-white border border-red-200 px-3 py-1.5 rounded shadow-sm"
                        >
                          <Trash2 size={16} /> 

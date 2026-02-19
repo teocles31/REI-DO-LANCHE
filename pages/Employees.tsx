@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { Employee, ExpenseCategory, PaymentMethod } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Plus, User, Banknote, Edit2, Trash2, Phone, Calendar } from 'lucide-react';
+import { MoneyInput } from '../components/MoneyInput';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 
 export const Employees: React.FC = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee, addExpense, expenses } = useApp();
@@ -10,6 +12,11 @@ export const Employees: React.FC = () => {
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [editingEmpId, setEditingEmpId] = useState<string | null>(null);
+
+  // Admin Auth
+  const [authOpen, setAuthOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<() => void>(() => {});
+  const [actionTitle, setActionTitle] = useState("Autorizar Ação");
   
   // Employee Form State
   const [empForm, setEmpForm] = useState<Omit<Employee, 'id'>>({
@@ -25,7 +32,7 @@ export const Employees: React.FC = () => {
   // Payment Form State
   const [payForm, setPayForm] = useState({
     employeeId: '',
-    amount: '',
+    amount: 0, // Changed to number
     description: '',
     date: new Date().toISOString().split('T')[0],
     category: 'Salarios' as ExpenseCategory,
@@ -44,6 +51,12 @@ export const Employees: React.FC = () => {
   };
 
   // --- Handlers ---
+
+  const requestAuth = (title: string, action: () => void) => {
+    setActionTitle(title);
+    setPendingAction(() => action);
+    setAuthOpen(true);
+  };
 
   const handleOpenEmpModal = (emp?: Employee) => {
     if (emp) {
@@ -75,18 +88,26 @@ export const Employees: React.FC = () => {
   const handleEmpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingEmpId) {
-      updateEmployee(editingEmpId, empForm);
+      // Editing requires auth
+      requestAuth("Salvar Funcionário", () => {
+         updateEmployee(editingEmpId, empForm);
+         setIsEmpModalOpen(false);
+      });
     } else {
       addEmployee(empForm);
+      setIsEmpModalOpen(false);
     }
-    setIsEmpModalOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    requestAuth("Excluir Funcionário", () => deleteEmployee(id));
   };
 
   const handleOpenPayModal = (empId: string) => {
     const emp = employees.find(e => e.id === empId);
     setPayForm({
         employeeId: empId,
-        amount: '',
+        amount: 0,
         description: `Adiantamento - ${emp?.name}`,
         date: new Date().toISOString().split('T')[0],
         category: 'Salarios',
@@ -103,7 +124,7 @@ export const Employees: React.FC = () => {
     // Create Expense linked to Employee
     addExpense({
         date: new Date(payForm.date).toISOString(),
-        amount: parseFloat(payForm.amount),
+        amount: payForm.amount,
         category: payForm.category,
         description: payForm.description,
         isRecurring: payForm.isRecurring,
@@ -118,6 +139,13 @@ export const Employees: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      <AdminAuthModal 
+        isOpen={authOpen} 
+        onClose={() => setAuthOpen(false)} 
+        onConfirm={pendingAction}
+        actionTitle={actionTitle}
+      />
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Equipe & Folha de Pagamento</h2>
@@ -161,7 +189,7 @@ export const Employees: React.FC = () => {
                             <button onClick={() => handleOpenEmpModal(emp)} className="p-1.5 text-gray-400 hover:text-blue-500">
                                 <Edit2 size={16} />
                             </button>
-                            <button onClick={() => deleteEmployee(emp.id)} className="p-1.5 text-gray-400 hover:text-red-500">
+                            <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-gray-400 hover:text-red-500">
                                 <Trash2 size={16} />
                             </button>
                         </div>
@@ -230,11 +258,11 @@ export const Employees: React.FC = () => {
                         </div>
                         <div>
                              <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
-                             <input 
-                                type="number" step="0.01" required
+                             <MoneyInput 
+                                required
                                 className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none"
                                 value={empForm.baseSalary}
-                                onChange={e => setEmpForm({...empForm, baseSalary: parseFloat(e.target.value)})}
+                                onChange={val => setEmpForm({...empForm, baseSalary: val})}
                              />
                         </div>
                     </div>
@@ -296,12 +324,12 @@ export const Employees: React.FC = () => {
                 <form onSubmit={handlePaySubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-                        <input 
-                            type="number" step="0.01" required
+                        <MoneyInput 
+                            required
                             autoFocus
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-lg font-semibold text-gray-800"
                             value={payForm.amount}
-                            onChange={e => setPayForm({...payForm, amount: e.target.value})}
+                            onChange={val => setPayForm({...payForm, amount: val})}
                         />
                     </div>
                     <div>

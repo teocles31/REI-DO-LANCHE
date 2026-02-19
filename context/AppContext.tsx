@@ -3,6 +3,7 @@ import { Ingredient, Product, Revenue, Expense, StockMovement, Employee } from '
 import { generateId } from '../utils/formatters';
 
 interface AppContextProps {
+  currentUser: string;
   ingredients: Ingredient[];
   products: Product[];
   revenues: Revenue[];
@@ -29,17 +30,7 @@ interface AppContextProps {
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
-// Storage Keys
-const STORAGE_KEYS = {
-  INGREDIENTS: 'reidolanche_ingredients',
-  PRODUCTS: 'reidolanche_products',
-  REVENUES: 'reidolanche_revenues',
-  EXPENSES: 'reidolanche_expenses',
-  STOCK_MOVEMENTS: 'reidolanche_stock_movements',
-  EMPLOYEES: 'reidolanche_employees',
-};
-
-// Seed Data (Used only on first load if storage is empty)
+// Initial Data for new users
 const INITIAL_INGREDIENTS: Ingredient[] = [
   { id: '1', name: 'Pão Brioche', category: 'Insumos', unit: 'un', costPerUnit: 1.50, exitPrice: 0, stockQuantity: 100, minStock: 20 },
   { id: '2', name: 'Carne Moída (Blend)', category: 'Insumos', unit: 'kg', costPerUnit: 35.00, exitPrice: 0, stockQuantity: 10, minStock: 5 },
@@ -72,65 +63,101 @@ const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize state from LocalStorage or fallback to Initial Data
-  const [ingredients, setIngredients] = useState<Ingredient[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.INGREDIENTS);
-    return saved ? JSON.parse(saved) : INITIAL_INGREDIENTS;
+export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: string }> = ({ children, currentUser }) => {
+  // We use state to hold data, but loading happens in useEffect to support key-swapping based on user
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [revenues, setRevenues] = useState<Revenue[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // Dynamic Keys based on User
+  const getKeys = (user: string) => ({
+    INGREDIENTS: `${user}_ingredients`,
+    PRODUCTS: `${user}_products`,
+    REVENUES: `${user}_revenues`,
+    EXPENSES: `${user}_expenses`,
+    STOCK: `${user}_stock_movements`,
+    EMPLOYEES: `${user}_employees`,
   });
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
+  // Load Data function (Can be replaced by API call for real cloud sync)
+  const loadData = () => {
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
 
-  const [revenues, setRevenues] = useState<Revenue[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.REVENUES);
-    return saved ? JSON.parse(saved) : [];
-  });
+    const load = (key: string, initial: any) => {
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : initial;
+    };
 
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    return saved ? JSON.parse(saved) : [];
-  });
+    setIngredients(load(keys.INGREDIENTS, INITIAL_INGREDIENTS));
+    setProducts(load(keys.PRODUCTS, INITIAL_PRODUCTS));
+    setRevenues(load(keys.REVENUES, []));
+    setExpenses(load(keys.EXPENSES, []));
+    setStockMovements(load(keys.STOCK, []));
+    setEmployees(load(keys.EMPLOYEES, []));
+  };
 
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.STOCK_MOVEMENTS);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Persistence Effects: Save to LocalStorage whenever state changes
+  // 1. Initial Load when User Changes
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INGREDIENTS, JSON.stringify(ingredients));
-  }, [ingredients]);
+    loadData();
+  }, [currentUser]);
 
+  // 2. Real-time Cross-Tab/Window Sync
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  }, [products]);
+    const handleStorageChange = (e: StorageEvent) => {
+        // If storage changes in another tab for this user's keys, reload
+        if (e.key && e.key.startsWith(currentUser)) {
+            loadData();
+        }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [currentUser]);
 
+  // 3. Persist Data (Save to Cloud/LocalStorage)
+  // Note: For real cross-device (Phone <-> PC), replace localStorage.setItem with await api.post(...)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.REVENUES, JSON.stringify(revenues));
-  }, [revenues]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
-  }, [expenses]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.STOCK_MOVEMENTS, JSON.stringify(stockMovements));
-  }, [stockMovements]);
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    localStorage.setItem(keys.INGREDIENTS, JSON.stringify(ingredients));
+  }, [ingredients, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
-  }, [employees]);
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    localStorage.setItem(keys.PRODUCTS, JSON.stringify(products));
+  }, [products, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    localStorage.setItem(keys.REVENUES, JSON.stringify(revenues));
+  }, [revenues, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    localStorage.setItem(keys.EXPENSES, JSON.stringify(expenses));
+  }, [expenses, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    localStorage.setItem(keys.STOCK, JSON.stringify(stockMovements));
+  }, [stockMovements, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    localStorage.setItem(keys.EMPLOYEES, JSON.stringify(employees));
+  }, [employees, currentUser]);
 
 
-  // Calculate generic cost for a product
+  // --- Logic Implementations ---
+
   const getProductCost = (product: Product): number => {
     return product.ingredients.reduce((total, item) => {
       const ing = ingredients.find(i => i.id === item.ingredientId);
@@ -141,7 +168,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addIngredient = (data: Omit<Ingredient, 'id'>) => {
     const newId = generateId();
     setIngredients(prev => [...prev, { ...data, id: newId }]);
-    // Initial Stock Movement
     if (data.stockQuantity > 0) {
       setStockMovements(prev => [{
         id: generateId(),
@@ -192,7 +218,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const registerLoss = (ingredientId: string, quantity: number, reason: string) => {
-    // Reduce stock
     setIngredients(prev => prev.map(ing => {
       if (ing.id === ingredientId) {
         return { ...ing, stockQuantity: Math.max(0, ing.stockQuantity - quantity) };
@@ -200,7 +225,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return ing;
     }));
 
-    // Record Movement
     setStockMovements(prev => [{
         id: generateId(),
         ingredientId,
@@ -210,7 +234,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reason: reason
     }, ...prev]);
 
-    // Optionally record as an expense
     const ingredient = ingredients.find(i => i.id === ingredientId);
     if (ingredient) {
         const costLost = ingredient.costPerUnit * quantity;
@@ -229,7 +252,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addStockEntry = (ingredientId: string, quantity: number, costPerUnit: number, reason: string = 'Compra de Estoque') => {
     setIngredients(prev => prev.map(ing => {
         if (ing.id === ingredientId) {
-            // Optional: Update costPerUnit if the new batch has a different price (Replacement Cost method)
             return { 
                 ...ing, 
                 stockQuantity: ing.stockQuantity + quantity,
@@ -250,7 +272,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, ...prev]);
   };
 
-  // Employee CRUD
   const addEmployee = (data: Omit<Employee, 'id'>) => {
     setEmployees(prev => [...prev, { ...data, id: generateId() }]);
   };
@@ -265,6 +286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
+      currentUser,
       ingredients,
       products,
       revenues,

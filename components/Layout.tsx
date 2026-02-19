@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText, Users, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText, Users, Menu, X, Clock } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
   onNavigate: (page: string) => void;
   onLogout: () => void;
+  sessionTimeLeft: number; // in milliseconds
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout, sessionTimeLeft }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -23,7 +24,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
 
   const handleNavigate = (page: string) => {
     onNavigate(page);
-    setIsMobileMenuOpen(false); // Close menu on mobile selection
+    setIsMobileMenuOpen(false);
+  };
+
+  // Format MM:SS
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Timer Color State
+  const getTimerColor = () => {
+    if (sessionTimeLeft < 60000) return 'text-red-500 animate-pulse font-bold'; // Less than 1 min
+    if (sessionTimeLeft < 300000) return 'text-orange-400 font-semibold'; // Less than 5 min
+    return 'text-slate-400';
   };
 
   return (
@@ -32,11 +48,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-slate-900 text-white flex items-center justify-between px-4 z-30 shadow-md">
          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold text-orange-500">REI DO LANCHE</span>
+            <span className="text-lg font-bold text-orange-500">REI DO LANCHE</span>
          </div>
-         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-300 hover:text-white">
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-         </button>
+         <div className="flex items-center gap-4">
+             {/* Mobile Timer */}
+             <div className={`flex items-center gap-1 text-xs ${getTimerColor()}`}>
+                <Clock size={14} />
+                <span>{formatTime(sessionTimeLeft)}</span>
+             </div>
+             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-300 hover:text-white">
+                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+             </button>
+         </div>
       </div>
 
       {/* Overlay for mobile */}
@@ -99,9 +122,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 pt-20 lg:pt-8 p-4 lg:p-8">
-        <div className="max-w-7xl mx-auto pb-10">
-          {children}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 pt-16 lg:pt-0">
+        
+        {/* Desktop Header for Timer */}
+        <header className="hidden lg:flex justify-end items-center h-16 bg-white border-b border-gray-200 px-8 shadow-sm">
+           <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-50 border border-slate-100 ${getTimerColor()}`}>
+              <Clock size={16} />
+              <span className="font-mono text-sm tracking-wide">{formatTime(sessionTimeLeft)}</span>
+           </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+          <div className="max-w-7xl mx-auto pb-10">
+            {children}
+          </div>
         </div>
       </main>
     </div>

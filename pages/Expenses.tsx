@@ -3,13 +3,19 @@ import { useApp } from '../context/AppContext';
 import { ExpenseCategory, PaymentMethod, Expense } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Trash2, PlusCircle, CheckCircle, Clock } from 'lucide-react';
+import { MoneyInput } from '../components/MoneyInput';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 
 export const Expenses: React.FC = () => {
   const { expenses, addExpense, deleteExpense, updateExpense } = useApp();
   const [activeTab, setActiveTab] = useState<'pending' | 'paid'>('pending');
   
+  // Admin Auth State
+  const [authOpen, setAuthOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<() => void>(() => {});
+  
   const [form, setForm] = useState({
-    amount: '',
+    amount: 0,
     category: 'Insumos' as ExpenseCategory,
     description: '',
     paymentMethod: 'PIX' as PaymentMethod,
@@ -24,7 +30,7 @@ export const Expenses: React.FC = () => {
 
     addExpense({
       date: new Date(form.date).toISOString(),
-      amount: parseFloat(form.amount),
+      amount: form.amount,
       category: form.category,
       description: form.description,
       isRecurring: form.isRecurring,
@@ -35,9 +41,14 @@ export const Expenses: React.FC = () => {
 
     setForm({
       ...form,
-      amount: '',
+      amount: 0,
       description: '',
     });
+  };
+
+  const handleDelete = (id: string) => {
+    setPendingAction(() => () => deleteExpense(id));
+    setAuthOpen(true);
   };
 
   const markAsPaid = (id: string) => {
@@ -63,6 +74,13 @@ export const Expenses: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <AdminAuthModal 
+        isOpen={authOpen} 
+        onClose={() => setAuthOpen(false)} 
+        onConfirm={pendingAction}
+        actionTitle="Excluir Despesa"
+      />
+      
       <h2 className="text-xl md:text-2xl font-bold text-gray-800">Controle de Despesas</h2>
 
       {/* Add Expense Form */}
@@ -94,12 +112,11 @@ export const Expenses: React.FC = () => {
           </div>
           <div className="lg:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-            <input 
-              type="number" step="0.01" required
+            <MoneyInput 
+              required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none h-10"
               value={form.amount}
-              onChange={e => setForm({...form, amount: e.target.value})}
-              placeholder="0,00"
+              onChange={val => setForm({...form, amount: val})}
             />
           </div>
           <div className="lg:col-span-1">
@@ -177,7 +194,7 @@ export const Expenses: React.FC = () => {
                                                 <CheckCircle size={16} />
                                             </button>
                                         )}
-                                        <button onClick={() => deleteExpense(exp.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
+                                        <button onClick={() => handleDelete(exp.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>

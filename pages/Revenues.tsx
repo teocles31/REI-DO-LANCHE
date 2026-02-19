@@ -3,13 +3,19 @@ import { useApp } from '../context/AppContext';
 import { RevenueCategory, PaymentMethod } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { PlusCircle, Trash2, Wallet } from 'lucide-react';
+import { MoneyInput } from '../components/MoneyInput';
+import { AdminAuthModal } from '../components/AdminAuthModal';
 
 export const Revenues: React.FC = () => {
   const { revenues, addRevenue, deleteRevenue } = useApp();
   
+  // Admin Auth State
+  const [authOpen, setAuthOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<() => void>(() => {});
+
   const [form, setForm] = useState({
     description: '',
-    amount: '',
+    amount: 0, 
     category: 'Balcao' as RevenueCategory,
     paymentMethod: 'Dinheiro' as PaymentMethod,
     date: new Date().toISOString().split('T')[0]
@@ -21,7 +27,7 @@ export const Revenues: React.FC = () => {
 
     addRevenue({
       date: new Date(form.date).toISOString(),
-      amount: parseFloat(form.amount),
+      amount: form.amount,
       description: form.description,
       category: form.category,
       paymentMethod: form.paymentMethod
@@ -30,12 +36,24 @@ export const Revenues: React.FC = () => {
     setForm({
       ...form,
       description: '',
-      amount: ''
+      amount: 0
     });
+  };
+
+  const handleDelete = (id: string) => {
+    setPendingAction(() => () => deleteRevenue(id));
+    setAuthOpen(true);
   };
 
   return (
     <div className="space-y-6">
+      <AdminAuthModal 
+        isOpen={authOpen} 
+        onClose={() => setAuthOpen(false)} 
+        onConfirm={pendingAction}
+        actionTitle="Excluir Entrada"
+      />
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Entradas Financeiras</h2>
@@ -61,12 +79,11 @@ export const Revenues: React.FC = () => {
           </div>
           <div className="lg:col-span-1">
              <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-             <input 
-               type="number" step="0.01" required
+             <MoneyInput 
+               required
                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none h-10"
                value={form.amount}
-               onChange={e => setForm({...form, amount: e.target.value})}
-               placeholder="0,00"
+               onChange={val => setForm({...form, amount: val})}
              />
           </div>
            <div className="lg:col-span-1">
@@ -131,7 +148,7 @@ export const Revenues: React.FC = () => {
                      </td>
                      <td className="px-6 py-3 text-right font-bold text-green-600">+ {formatCurrency(rev.amount)}</td>
                      <td className="px-6 py-3 text-center">
-                       <button onClick={() => deleteRevenue(rev.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                       <button onClick={() => handleDelete(rev.id)} className="text-gray-400 hover:text-red-500 transition-colors">
                          <Trash2 size={16} />
                        </button>
                      </td>
