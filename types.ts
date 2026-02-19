@@ -1,3 +1,4 @@
+
 export type UnitType = 'kg' | 'un' | 'l';
 
 export interface Ingredient {
@@ -6,7 +7,7 @@ export interface Ingredient {
   category: 'Insumos' | 'Bebidas' | 'Embalagens' | 'Outros';
   unit: UnitType;
   costPerUnit: number;
-  exitPrice: number; // Preço de saída/venda (novo campo)
+  exitPrice: number; // Preço de saída/venda
   stockQuantity: number;
   minStock: number;
 }
@@ -16,22 +17,43 @@ export interface ProductIngredient {
   quantity: number;
 }
 
+export interface ProductComplement {
+  title: string; // Ex: "Escolha o Molho"
+  maxSelection: number; // Ex: 1
+  options: string[]; // Ex: ["Alho", "Barbecue", "Picante"]
+  required: boolean;
+}
+
+export type ProductCategory = 'Lanches' | 'Bebidas' | 'Combos' | 'Porções' | 'Sobremesas' | 'Outros';
+
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
+  category: ProductCategory; // Novo campo
   ingredients: ProductIngredient[];
+  complements?: ProductComplement[]; 
   totalCost?: number;
   margin?: number;
   marginPercent?: number;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  reference?: string;
+  lastOrderDate?: string;
+  totalOrders: number;
+}
+
 export interface Employee {
   id: string;
   name: string;
-  role: string; // Cargo (e.g. Chapeiro, Atendente)
-  baseSalary: number; // Salário Base
+  role: string;
+  baseSalary: number;
   admissionDate: string;
   pixKey?: string;
   phone?: string;
@@ -43,7 +65,7 @@ export type RevenueCategory = 'Balcao' | 'Delivery' | 'App' | 'Outros';
 
 export interface Revenue {
   id: string;
-  date: string; // ISO string
+  date: string;
   description: string;
   amount: number;
   category: RevenueCategory;
@@ -66,15 +88,15 @@ export type ExpenseCategory =
 
 export interface Expense {
   id: string;
-  date: string; // Data de vencimento ou competência
-  paidDate?: string; // Data do pagamento efetivo (se realizado)
+  date: string;
+  paidDate?: string;
   amount: number;
   category: ExpenseCategory;
   description: string;
   isRecurring: boolean;
   status: 'paid' | 'pending';
   paymentMethod: PaymentMethod;
-  employeeId?: string; // Vínculo opcional com funcionário
+  employeeId?: string;
 }
 
 export interface DashboardStats {
@@ -85,7 +107,7 @@ export interface DashboardStats {
   pendingExpenses: number;
 }
 
-export type StockMovementType = 'entry' | 'loss' | 'adjustment';
+export type StockMovementType = 'entry' | 'loss' | 'adjustment' | 'sale';
 
 export interface StockMovement {
   id: string;
@@ -94,5 +116,30 @@ export interface StockMovement {
   quantity: number;
   date: string;
   reason?: string;
-  cost?: number; // Custo unitário ou total naquele momento
+  cost?: number;
+}
+
+// Order Types for POS
+export interface OrderItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  selectedComplements: string[]; // Lista de complementos escolhidos (strings)
+}
+
+export interface Order {
+  id: string;
+  customerName: string;
+  customerPhone?: string; // Novo
+  deliveryType: 'retirada' | 'entrega' | 'mesa';
+  address?: string;
+  reference?: string;
+  paymentMethod: PaymentMethod;
+  changeFor?: number; // Troco para
+  items: OrderItem[];
+  totalAmount: number;
+  date: string;
+  status: 'pending' | 'completed' | 'canceled';
 }

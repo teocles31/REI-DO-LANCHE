@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText, Users, Menu, X, Clock } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText, Users, Menu, X, Clock, RefreshCw } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -110,7 +110,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-slate-700 pb-8 lg:pb-4">
+        <div className="p-4 border-t border-slate-700 space-y-2 pb-8 lg:pb-4">
+           <button 
+            onClick={() => handleNavigate('exit_module')}
+            className="w-full flex items-center space-x-2 px-4 py-3 rounded-lg text-blue-300 bg-slate-800 hover:bg-slate-700 hover:text-white transition-colors border border-slate-700"
+          >
+            <RefreshCw size={18} />
+            <span>Trocar Módulo</span>
+          </button>
+          
           <button 
             onClick={onLogout}
             className="w-full flex items-center space-x-2 px-4 py-2 text-slate-400 hover:text-red-400 transition-colors"

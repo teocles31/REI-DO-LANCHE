@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Ingredient, Product, Revenue, Expense, StockMovement, Employee } from '../types';
+import { Ingredient, Product, Revenue, Expense, StockMovement, Employee, Order, Customer } from '../types';
 import { generateId } from '../utils/formatters';
 
 interface AppContextProps {
@@ -10,6 +10,8 @@ interface AppContextProps {
   expenses: Expense[];
   stockMovements: StockMovement[];
   employees: Employee[];
+  customers: Customer[];
+  orders: Order[]; // Historico de pedidos
   addIngredient: (ing: Omit<Ingredient, 'id'>) => void;
   updateIngredient: (id: string, ing: Partial<Ingredient>) => void;
   addProduct: (prod: Omit<Product, 'id' | 'totalCost' | 'margin' | 'marginPercent'>) => void;
@@ -26,6 +28,8 @@ interface AppContextProps {
   addEmployee: (emp: Omit<Employee, 'id'>) => void;
   updateEmployee: (id: string, emp: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
+  processOrder: (order: Order) => void;
+  saveCustomer: (customerData: Omit<Customer, 'id' | 'lastOrderDate' | 'totalOrders'>) => void;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -45,11 +49,26 @@ const INITIAL_PRODUCTS: Product[] = [
     name: 'X-Bacon Clássico', 
     description: 'Pão, 150g carne, cheddar, bacon',
     price: 32.00,
+    category: 'Lanches',
     ingredients: [
       { ingredientId: '1', quantity: 1 }, // 1 pão
       { ingredientId: '2', quantity: 0.150 }, // 150g carne
       { ingredientId: '3', quantity: 0.030 }, // 30g queijo
       { ingredientId: '4', quantity: 0.040 }, // 40g bacon
+    ],
+    complements: [
+      { 
+        title: "Ponto da Carne", 
+        maxSelection: 1, 
+        required: true,
+        options: ["Mal Passada", "Ao Ponto", "Bem Passada"] 
+      },
+      { 
+        title: "Molho Extra", 
+        maxSelection: 1, 
+        required: false,
+        options: ["Maionese Verde", "Barbecue", "Alho"] 
+      }
     ]
   },
   { 
@@ -57,6 +76,7 @@ const INITIAL_PRODUCTS: Product[] = [
     name: 'Coca-Cola', 
     description: 'Lata 350ml',
     price: 6.00,
+    category: 'Bebidas',
     ingredients: [
       { ingredientId: '5', quantity: 1 }
     ]
@@ -64,13 +84,14 @@ const INITIAL_PRODUCTS: Product[] = [
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: string }> = ({ children, currentUser }) => {
-  // We use state to hold data, but loading happens in useEffect to support key-swapping based on user
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [revenues, setRevenues] = useState<Revenue[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   // Dynamic Keys based on User
   const getKeys = (user: string) => ({
@@ -80,9 +101,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
     EXPENSES: `${user}_expenses`,
     STOCK: `${user}_stock_movements`,
     EMPLOYEES: `${user}_employees`,
+    CUSTOMERS: `${user}_customers`,
+    ORDERS: `${user}_orders`,
   });
 
-  // Load Data function (Can be replaced by API call for real cloud sync)
   const loadData = () => {
     if (!currentUser) return;
     const keys = getKeys(currentUser);
@@ -98,65 +120,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
     setExpenses(load(keys.EXPENSES, []));
     setStockMovements(load(keys.STOCK, []));
     setEmployees(load(keys.EMPLOYEES, []));
+    setCustomers(load(keys.CUSTOMERS, []));
+    setOrders(load(keys.ORDERS, []));
   };
 
-  // 1. Initial Load when User Changes
-  useEffect(() => {
-    loadData();
-  }, [currentUser]);
+  useEffect(() => { loadData(); }, [currentUser]);
 
-  // 2. Real-time Cross-Tab/Window Sync
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-        // If storage changes in another tab for this user's keys, reload
-        if (e.key && e.key.startsWith(currentUser)) {
-            loadData();
-        }
+        if (e.key && e.key.startsWith(currentUser)) loadData();
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentUser]);
 
-  // 3. Persist Data (Save to Cloud/LocalStorage)
-  // Note: For real cross-device (Phone <-> PC), replace localStorage.setItem with await api.post(...)
-  useEffect(() => {
-    if (!currentUser) return;
-    const keys = getKeys(currentUser);
-    localStorage.setItem(keys.INGREDIENTS, JSON.stringify(ingredients));
-  }, [ingredients, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const keys = getKeys(currentUser);
-    localStorage.setItem(keys.PRODUCTS, JSON.stringify(products));
-  }, [products, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const keys = getKeys(currentUser);
-    localStorage.setItem(keys.REVENUES, JSON.stringify(revenues));
-  }, [revenues, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const keys = getKeys(currentUser);
-    localStorage.setItem(keys.EXPENSES, JSON.stringify(expenses));
-  }, [expenses, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const keys = getKeys(currentUser);
-    localStorage.setItem(keys.STOCK, JSON.stringify(stockMovements));
-  }, [stockMovements, currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const keys = getKeys(currentUser);
-    localStorage.setItem(keys.EMPLOYEES, JSON.stringify(employees));
-  }, [employees, currentUser]);
-
-
-  // --- Logic Implementations ---
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).INGREDIENTS, JSON.stringify(ingredients)); }, [ingredients, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).PRODUCTS, JSON.stringify(products)); }, [products, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).REVENUES, JSON.stringify(revenues)); }, [revenues, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).EXPENSES, JSON.stringify(expenses)); }, [expenses, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).STOCK, JSON.stringify(stockMovements)); }, [stockMovements, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).EMPLOYEES, JSON.stringify(employees)); }, [employees, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).CUSTOMERS, JSON.stringify(customers)); }, [customers, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).ORDERS, JSON.stringify(orders)); }, [orders, currentUser]);
 
   const getProductCost = (product: Product): number => {
     return product.ingredients.reduce((total, item) => {
@@ -284,6 +269,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
     setEmployees(prev => prev.filter(e => e.id !== id));
   };
 
+  const saveCustomer = (customerData: Omit<Customer, 'id' | 'lastOrderDate' | 'totalOrders'>) => {
+      setCustomers(prev => {
+          const existing = prev.find(c => c.phone === customerData.phone);
+          if (existing) {
+              return prev.map(c => c.id === existing.id ? { ...c, ...customerData } : c);
+          }
+          return [...prev, { 
+              ...customerData, 
+              id: generateId(), 
+              totalOrders: 0,
+              lastOrderDate: undefined
+          }];
+      });
+  };
+
+  const processOrder = (order: Order) => {
+    // 1. Save Order History
+    setOrders(prev => [order, ...prev]);
+
+    // 2. Update Customer Data (if phone provided)
+    if (order.customerPhone) {
+        setCustomers(prev => {
+            const existing = prev.find(c => c.phone === order.customerPhone);
+            if (existing) {
+                return prev.map(c => c.phone === order.customerPhone ? {
+                    ...c,
+                    name: order.customerName,
+                    address: order.address || c.address,
+                    reference: order.reference || c.reference,
+                    lastOrderDate: order.date,
+                    totalOrders: c.totalOrders + 1
+                } : c);
+            } else {
+                return [...prev, {
+                    id: generateId(),
+                    name: order.customerName,
+                    phone: order.customerPhone!,
+                    address: order.address,
+                    reference: order.reference,
+                    lastOrderDate: order.date,
+                    totalOrders: 1
+                }];
+            }
+        });
+    }
+
+    // 3. Add to Revenue
+    addRevenue({
+        date: order.date,
+        amount: order.totalAmount,
+        description: `Pedido #${order.id.slice(0, 4)} - ${order.customerName}`,
+        category: order.deliveryType === 'entrega' ? 'Delivery' : order.deliveryType === 'mesa' ? 'Balcao' : 'Outros',
+        paymentMethod: order.paymentMethod
+    });
+
+    // 4. Deduct Inventory
+    const stockUpdates = new Map<string, number>();
+    
+    order.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+            product.ingredients.forEach(ing => {
+                const totalQtyToDeduct = ing.quantity * item.quantity;
+                const current = stockUpdates.get(ing.ingredientId) || 0;
+                stockUpdates.set(ing.ingredientId, current + totalQtyToDeduct);
+            });
+        }
+    });
+
+    setIngredients(prev => prev.map(ing => {
+        const deduction = stockUpdates.get(ing.id);
+        if (deduction) {
+            return { ...ing, stockQuantity: ing.stockQuantity - deduction };
+        }
+        return ing;
+    }));
+
+    stockUpdates.forEach((qty, ingId) => {
+        setStockMovements(prev => [{
+            id: generateId(),
+            ingredientId: ingId,
+            type: 'sale',
+            quantity: qty,
+            date: new Date().toISOString(),
+            reason: `Venda Pedido #${order.id.slice(0, 4)}`
+        }, ...prev]);
+    });
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -293,6 +367,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
       expenses,
       stockMovements,
       employees,
+      customers,
+      orders,
       addIngredient,
       updateIngredient,
       addProduct,
@@ -308,7 +384,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
       getProductCost,
       addEmployee,
       updateEmployee,
-      deleteEmployee
+      deleteEmployee,
+      processOrder,
+      saveCustomer
     }}>
       {children}
     </AppContext.Provider>
