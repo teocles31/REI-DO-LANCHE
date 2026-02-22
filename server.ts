@@ -31,6 +31,7 @@ const createCrudRoutes = (tableName: string) => {
         if (tableName === 'products') {
           row.ingredients = JSON.parse(row.ingredients);
           row.complements = row.complements ? JSON.parse(row.complements) : undefined;
+          row.addOns = row.addOns ? JSON.parse(row.addOns) : undefined;
         }
         if (tableName === 'orders') {
           row.items = JSON.parse(row.items);
@@ -140,13 +141,13 @@ app.post('/api/migrate', (req, res) => {
 
   const TABLE_COLUMNS: Record<string, string[]> = {
     ingredients: ['id', 'userId', 'name', 'category', 'unit', 'costPerUnit', 'exitPrice', 'stockQuantity', 'minStock'],
-    products: ['id', 'userId', 'name', 'description', 'price', 'category', 'ingredients', 'complements'],
+    products: ['id', 'userId', 'name', 'description', 'price', 'category', 'ingredients', 'complements', 'addOns'],
     revenues: ['id', 'userId', 'date', 'amount', 'description', 'category', 'paymentMethod', 'isRecurring', 'status'],
-    expenses: ['id', 'userId', 'date', 'amount', 'description', 'category', 'paymentMethod', 'isRecurring', 'status'],
+    expenses: ['id', 'userId', 'date', 'amount', 'description', 'category', 'paymentMethod', 'isRecurring', 'status', 'employeeId', 'paidDate'],
     stock_movements: ['id', 'userId', 'ingredientId', 'type', 'quantity', 'date', 'reason', 'cost'],
-    employees: ['id', 'userId', 'name', 'role', 'salary', 'admissionDate', 'active', 'phone', 'address'],
+    employees: ['id', 'userId', 'name', 'role', 'salary', 'admissionDate', 'active', 'phone', 'address', 'pixKey'],
     customers: ['id', 'userId', 'name', 'phone', 'address', 'reference', 'lastOrderDate', 'totalOrders'],
-    orders: ['id', 'userId', 'date', 'customerName', 'customerPhone', 'address', 'reference', 'items', 'totalAmount', 'paymentMethod', 'deliveryType', 'status']
+    orders: ['id', 'userId', 'date', 'customerName', 'customerPhone', 'address', 'reference', 'items', 'totalAmount', 'paymentMethod', 'deliveryType', 'status', 'changeFor']
   };
 
   const insertBatch = (table: string, items: any[]) => {
@@ -167,13 +168,31 @@ app.post('/api/migrate', (req, res) => {
     const transaction = db.transaction((rows) => {
       for (const row of rows) {
         const values = columns.map(k => {
-            const val = row[k];
-            if (val === undefined) return null; // Handle missing fields
-            if (typeof val === 'object' && val !== null) return JSON.stringify(val);
+            let val = row[k];
+            
+            // Mappings for legacy data
+            if (table === 'employees' && k === 'salary' && val === undefined) val = row['baseSalary'];
+            
+            // Defaults for missing values
+            if (val === undefined || val === null) {
+                 if (k === 'isRecurring') return 0;
+                 if (k === 'active') return 1;
+                 if (k === 'totalOrders') return 0;
+                 if (k === 'status' && table === 'revenues') return 'paid';
+                 if (k === 'status' && table === 'expenses') return 'paid';
+                 return null;
+            }
+
+            if (typeof val === 'object') return JSON.stringify(val);
             if (typeof val === 'boolean') return val ? 1 : 0;
             return val;
         });
-        stmt.run(...values);
+        try {
+            stmt.run(...values);
+        } catch (e) {
+            console.error(`Failed to insert into ${table}:`, e, row);
+            throw e; // Re-throw to abort transaction
+        }
       }
     });
     transaction(itemsWithUser);

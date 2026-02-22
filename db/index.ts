@@ -8,7 +8,7 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
 }
 
-const db = new Database(path.join(dataDir, 'app_v2.db'));
+const db = new Database(path.join(dataDir, 'app_v3.db'));
 
 // Enable WAL mode for better concurrency
 db.pragma('journal_mode = WAL');
@@ -36,7 +36,8 @@ export function initDb() {
       price REAL NOT NULL,
       category TEXT NOT NULL,
       ingredients TEXT NOT NULL, -- JSON
-      complements TEXT -- JSON
+      complements TEXT, -- JSON
+      addOns TEXT -- JSON
     );
 
     CREATE TABLE IF NOT EXISTS revenues (
@@ -60,7 +61,9 @@ export function initDb() {
       category TEXT NOT NULL,
       paymentMethod TEXT NOT NULL,
       isRecurring INTEGER DEFAULT 0, -- Boolean
-      status TEXT DEFAULT 'paid'
+      status TEXT DEFAULT 'paid',
+      employeeId TEXT,
+      paidDate TEXT
     );
 
     CREATE TABLE IF NOT EXISTS stock_movements (
@@ -83,7 +86,8 @@ export function initDb() {
       admissionDate TEXT NOT NULL,
       active INTEGER DEFAULT 1, -- Boolean
       phone TEXT,
-      address TEXT
+      address TEXT,
+      pixKey TEXT
     );
 
     CREATE TABLE IF NOT EXISTS customers (
@@ -109,7 +113,8 @@ export function initDb() {
       totalAmount REAL NOT NULL,
       paymentMethod TEXT NOT NULL,
       deliveryType TEXT NOT NULL,
-      status TEXT NOT NULL
+      status TEXT NOT NULL,
+      changeFor REAL
     );
   `);
   console.log('Database initialized');

@@ -558,7 +558,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
             alert('Dados restaurados com sucesso! A página será recarregada.');
             window.location.reload();
         } else {
-            alert('Erro ao restaurar dados. Tente novamente.');
+            const err = await res.json();
+            alert(`Erro ao restaurar dados: ${err.error || 'Erro desconhecido'}`);
         }
     } catch (e) {
         console.error("Migration failed", e);
