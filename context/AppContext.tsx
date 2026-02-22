@@ -113,21 +113,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
     ORDERS: `${user}_orders`,
   });
 
+  const loadFromLocalStorage = () => {
+    const keys = getKeys(currentUser);
+    const getLocal = (key: string, initial: any) => {
+        const saved = localStorage.getItem(key);
+        return saved ? JSON.parse(saved) : initial;
+    };
+
+    setIngredients(getLocal(keys.INGREDIENTS, INITIAL_INGREDIENTS));
+    setProducts(getLocal(keys.PRODUCTS, INITIAL_PRODUCTS));
+    setRevenues(getLocal(keys.REVENUES, []));
+    setExpenses(getLocal(keys.EXPENSES, []));
+    setStockMovements(getLocal(keys.STOCK, []));
+    setEmployees(getLocal(keys.EMPLOYEES, []));
+    setCustomers(getLocal(keys.CUSTOMERS, []));
+    setOrders(getLocal(keys.ORDERS, []));
+  };
+
   const loadData = async () => {
     if (!currentUser) return;
     try {
-        const [ing, prod, rev, exp, stock, emp, cust, ord] = await Promise.all([
-            fetch('/api/ingredients', { headers }).then(r => r.json()),
-            fetch('/api/products', { headers }).then(r => r.json()),
-            fetch('/api/revenues', { headers }).then(r => r.json()),
-            fetch('/api/expenses', { headers }).then(r => r.json()),
-            fetch('/api/stock_movements', { headers }).then(r => r.json()),
-            fetch('/api/employees', { headers }).then(r => r.json()),
-            fetch('/api/customers', { headers }).then(r => r.json()),
-            fetch('/api/orders', { headers }).then(r => r.json()),
+        const responses = await Promise.all([
+            fetch('/api/ingredients', { headers }),
+            fetch('/api/products', { headers }),
+            fetch('/api/revenues', { headers }),
+            fetch('/api/expenses', { headers }),
+            fetch('/api/stock_movements', { headers }),
+            fetch('/api/employees', { headers }),
+            fetch('/api/customers', { headers }),
+            fetch('/api/orders', { headers }),
         ]);
+
+        // Check if any response is not OK (e.g. 404 if API is missing)
+        if (responses.some(r => !r.ok)) {
+            throw new Error("API unavailable");
+        }
+
+        const [ing, prod, rev, exp, stock, emp, cust, ord] = await Promise.all(responses.map(r => r.json()));
         
-        // Ensure we got arrays back (handle errors gracefully)
         setIngredients(Array.isArray(ing) ? ing : []);
         setProducts(Array.isArray(prod) ? prod : []);
         setRevenues(Array.isArray(rev) ? rev : []);
@@ -137,7 +160,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
         setCustomers(Array.isArray(cust) ? cust : []);
         setOrders(Array.isArray(ord) ? ord : []);
     } catch (e) {
-        console.error("Failed to load data from API", e);
+        console.warn("API unavailable or failed, falling back to LocalStorage", e);
+        loadFromLocalStorage();
     }
   };
 
@@ -184,6 +208,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
 
     checkMigration();
   }, [currentUser]);
+
+  // Sync to LocalStorage on changes (Backup)
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).INGREDIENTS, JSON.stringify(ingredients)); }, [ingredients, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).PRODUCTS, JSON.stringify(products)); }, [products, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).REVENUES, JSON.stringify(revenues)); }, [revenues, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).EXPENSES, JSON.stringify(expenses)); }, [expenses, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).STOCK, JSON.stringify(stockMovements)); }, [stockMovements, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).EMPLOYEES, JSON.stringify(employees)); }, [employees, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).CUSTOMERS, JSON.stringify(customers)); }, [customers, currentUser]);
+  useEffect(() => { if (currentUser) localStorage.setItem(getKeys(currentUser).ORDERS, JSON.stringify(orders)); }, [orders, currentUser]);
 
   const getProductCost = (product: Product): number => {
     return product.ingredients.reduce((total, item) => {
@@ -559,17 +593,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
             window.location.reload();
         } else {
             const text = await res.text();
-            try {
-                const err = JSON.parse(text);
-                alert(`Erro ao restaurar dados: ${err.error || 'Erro desconhecido'}`);
-            } catch (e) {
-                console.error("Failed to parse error response", text);
-                alert(`Erro ao restaurar dados (Resposta inválida do servidor): ${text.substring(0, 200)}...`);
-            }
+            throw new Error(text);
         }
     } catch (e) {
-        console.error("Migration failed", e);
-        alert(`Erro de conexão ao restaurar dados: ${(e as Error).message}`);
+        console.warn("Migration to API failed, loading locally", e);
+        // Fallback: Load directly into state
+        setIngredients(localData.ingredients);
+        setProducts(localData.products);
+        setRevenues(localData.revenues);
+        setExpenses(localData.expenses);
+        setStockMovements(localData.stockMovements);
+        setEmployees(localData.employees);
+        setCustomers(localData.customers);
+        setOrders(localData.orders);
+        alert('Servidor indisponível. Seus dados foram carregados do armazenamento local do navegador.');
     }
   };
 
