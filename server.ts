@@ -138,19 +138,37 @@ app.post('/api/migrate', (req, res) => {
 
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
+  const TABLE_COLUMNS: Record<string, string[]> = {
+    ingredients: ['id', 'userId', 'name', 'category', 'unit', 'costPerUnit', 'exitPrice', 'stockQuantity', 'minStock'],
+    products: ['id', 'userId', 'name', 'description', 'price', 'category', 'ingredients', 'complements'],
+    revenues: ['id', 'userId', 'date', 'amount', 'description', 'category', 'paymentMethod', 'isRecurring', 'status'],
+    expenses: ['id', 'userId', 'date', 'amount', 'description', 'category', 'paymentMethod', 'isRecurring', 'status'],
+    stock_movements: ['id', 'userId', 'ingredientId', 'type', 'quantity', 'date', 'reason', 'cost'],
+    employees: ['id', 'userId', 'name', 'role', 'salary', 'admissionDate', 'active', 'phone', 'address'],
+    customers: ['id', 'userId', 'name', 'phone', 'address', 'reference', 'lastOrderDate', 'totalOrders'],
+    orders: ['id', 'userId', 'date', 'customerName', 'customerPhone', 'address', 'reference', 'items', 'totalAmount', 'paymentMethod', 'deliveryType', 'status']
+  };
+
   const insertBatch = (table: string, items: any[]) => {
     if (!items || items.length === 0) return;
-    // Add userId to each item
+    
+    const columns = TABLE_COLUMNS[table];
+    if (!columns) {
+        console.error(`Unknown table: ${table}`);
+        return;
+    }
+
+    // Add userId to each item if missing (it's passed in body)
     const itemsWithUser = items.map(item => ({ ...item, userId }));
     
-    const keys = Object.keys(itemsWithUser[0]);
-    const placeholders = keys.map(() => '?').join(',');
-    const stmt = db.prepare(`INSERT OR IGNORE INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`);
+    const placeholders = columns.map(() => '?').join(',');
+    const stmt = db.prepare(`INSERT OR REPLACE INTO ${table} (${columns.join(',')}) VALUES (${placeholders})`);
     
     const transaction = db.transaction((rows) => {
       for (const row of rows) {
-        const values = keys.map(k => {
+        const values = columns.map(k => {
             const val = row[k];
+            if (val === undefined) return null; // Handle missing fields
             if (typeof val === 'object' && val !== null) return JSON.stringify(val);
             if (typeof val === 'boolean') return val ? 1 : 0;
             return val;

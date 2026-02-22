@@ -8,7 +8,7 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
 }
 
-const db = new Database(path.join(dataDir, 'app.db'));
+const db = new Database(path.join(dataDir, 'app_v2.db'));
 
 // Enable WAL mode for better concurrency
 db.pragma('journal_mode = WAL');

@@ -32,6 +32,7 @@ interface AppContextProps {
   processOrder: (order: Order) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
   saveCustomer: (customerData: Omit<Customer, 'id' | 'lastOrderDate' | 'totalOrders'>) => Promise<void>;
+  forceMigration: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -526,6 +527,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
     await fetch(`/api/orders/${orderId}`, { method: 'DELETE', headers });
   };
 
+  const forceMigration = async () => {
+    if (!currentUser) return;
+    const keys = getKeys(currentUser);
+    const getLocal = (key: string, initial: any) => {
+        const saved = localStorage.getItem(key);
+        return saved ? JSON.parse(saved) : initial;
+    };
+
+    const localData = {
+        userId: currentUser,
+        ingredients: getLocal(keys.INGREDIENTS, INITIAL_INGREDIENTS),
+        products: getLocal(keys.PRODUCTS, INITIAL_PRODUCTS),
+        revenues: getLocal(keys.REVENUES, []),
+        expenses: getLocal(keys.EXPENSES, []),
+        stockMovements: getLocal(keys.STOCK, []),
+        employees: getLocal(keys.EMPLOYEES, []),
+        customers: getLocal(keys.CUSTOMERS, []),
+        orders: getLocal(keys.ORDERS, []),
+    };
+    
+    try {
+        const res = await fetch('/api/migrate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(localData)
+        });
+        if (res.ok) {
+            localStorage.setItem(`${currentUser}_MIGRATED_DB_V1`, 'true');
+            alert('Dados restaurados com sucesso! A página será recarregada.');
+            window.location.reload();
+        } else {
+            alert('Erro ao restaurar dados. Tente novamente.');
+        }
+    } catch (e) {
+        console.error("Migration failed", e);
+        alert('Erro de conexão ao restaurar dados.');
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -556,7 +596,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
       deleteEmployee,
       processOrder,
       deleteOrder,
-      saveCustomer
+      saveCustomer,
+      forceMigration
     }}>
       {children}
     </AppContext.Provider>

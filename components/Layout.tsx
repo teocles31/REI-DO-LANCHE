@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText, Users, Menu, X, Clock, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingDown, Package, Utensils, LogOut, FileText, Users, Menu, X, Clock, RefreshCw, DatabaseBackup } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, onLogout, sessionTimeLeft }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { forceMigration } = useApp();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,6 +27,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
   const handleNavigate = (page: string) => {
     onNavigate(page);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleRestoreData = async () => {
+    if (window.confirm('Tem certeza que deseja restaurar os dados do backup local? Isso pode sobrescrever dados atuais.')) {
+        await forceMigration();
+    }
   };
 
   // Format MM:SS
@@ -117,6 +125,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
           >
             <RefreshCw size={18} />
             <span>Trocar Módulo</span>
+          </button>
+
+          <button 
+            onClick={handleRestoreData}
+            className="w-full flex items-center space-x-2 px-4 py-2 text-slate-400 hover:text-yellow-400 transition-colors text-sm"
+          >
+            <DatabaseBackup size={16} />
+            <span>Restaurar Dados</span>
           </button>
           
           <button 
