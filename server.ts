@@ -9,12 +9,17 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors());
-app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for migration
+app.use(bodyParser.json({ limit: '100mb' })); // Increased limit for migration
+app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
 
 // Initialize Database
 initDb();
 
 // --- API Routes ---
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Generic CRUD Helper
 const createCrudRoutes = (tableName: string) => {

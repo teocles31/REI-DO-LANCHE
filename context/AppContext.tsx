@@ -558,12 +558,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode; currentUser: str
             alert('Dados restaurados com sucesso! A página será recarregada.');
             window.location.reload();
         } else {
-            const err = await res.json();
-            alert(`Erro ao restaurar dados: ${err.error || 'Erro desconhecido'}`);
+            const text = await res.text();
+            try {
+                const err = JSON.parse(text);
+                alert(`Erro ao restaurar dados: ${err.error || 'Erro desconhecido'}`);
+            } catch (e) {
+                console.error("Failed to parse error response", text);
+                alert(`Erro ao restaurar dados (Resposta inválida do servidor): ${text.substring(0, 200)}...`);
+            }
         }
     } catch (e) {
         console.error("Migration failed", e);
-        alert('Erro de conexão ao restaurar dados.');
+        alert(`Erro de conexão ao restaurar dados: ${(e as Error).message}`);
     }
   };
 
