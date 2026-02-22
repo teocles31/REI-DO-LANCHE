@@ -8,7 +8,7 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
 }
 
-const db = new Database(path.join(dataDir, 'app_v3.db'));
+const db = new Database(path.join(dataDir, 'app_v4.db'));
 
 // Enable WAL mode for better concurrency
 db.pragma('journal_mode = WAL');
@@ -19,23 +19,23 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS ingredients (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      unit TEXT NOT NULL,
-      costPerUnit REAL NOT NULL,
-      exitPrice REAL NOT NULL,
-      stockQuantity REAL NOT NULL,
-      minStock REAL NOT NULL
+      name TEXT,
+      category TEXT,
+      unit TEXT,
+      costPerUnit REAL DEFAULT 0,
+      exitPrice REAL DEFAULT 0,
+      stockQuantity REAL DEFAULT 0,
+      minStock REAL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      name TEXT NOT NULL,
+      name TEXT,
       description TEXT,
-      price REAL NOT NULL,
-      category TEXT NOT NULL,
-      ingredients TEXT NOT NULL, -- JSON
+      price REAL DEFAULT 0,
+      category TEXT,
+      ingredients TEXT, -- JSON
       complements TEXT, -- JSON
       addOns TEXT -- JSON
     );
@@ -43,11 +43,11 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS revenues (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      date TEXT NOT NULL,
-      amount REAL NOT NULL,
-      description TEXT NOT NULL,
-      category TEXT NOT NULL,
-      paymentMethod TEXT NOT NULL,
+      date TEXT,
+      amount REAL DEFAULT 0,
+      description TEXT,
+      category TEXT,
+      paymentMethod TEXT,
       isRecurring INTEGER DEFAULT 0, -- Boolean
       status TEXT DEFAULT 'paid'
     );
@@ -55,11 +55,11 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS expenses (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      date TEXT NOT NULL,
-      amount REAL NOT NULL,
-      description TEXT NOT NULL,
-      category TEXT NOT NULL,
-      paymentMethod TEXT NOT NULL,
+      date TEXT,
+      amount REAL DEFAULT 0,
+      description TEXT,
+      category TEXT,
+      paymentMethod TEXT,
       isRecurring INTEGER DEFAULT 0, -- Boolean
       status TEXT DEFAULT 'paid',
       employeeId TEXT,
@@ -69,21 +69,21 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS stock_movements (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      ingredientId TEXT NOT NULL,
-      type TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      date TEXT NOT NULL,
+      ingredientId TEXT,
+      type TEXT,
+      quantity REAL DEFAULT 0,
+      date TEXT,
       reason TEXT,
-      cost REAL
+      cost REAL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS employees (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL,
-      salary REAL NOT NULL,
-      admissionDate TEXT NOT NULL,
+      name TEXT,
+      role TEXT,
+      salary REAL DEFAULT 0,
+      admissionDate TEXT,
       active INTEGER DEFAULT 1, -- Boolean
       phone TEXT,
       address TEXT,
@@ -93,7 +93,7 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      name TEXT NOT NULL,
+      name TEXT,
       phone TEXT,
       address TEXT,
       reference TEXT,
@@ -104,16 +104,16 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
-      date TEXT NOT NULL,
-      customerName TEXT NOT NULL,
+      date TEXT,
+      customerName TEXT,
       customerPhone TEXT,
       address TEXT,
       reference TEXT,
-      items TEXT NOT NULL, -- JSON
-      totalAmount REAL NOT NULL,
-      paymentMethod TEXT NOT NULL,
-      deliveryType TEXT NOT NULL,
-      status TEXT NOT NULL,
+      items TEXT, -- JSON
+      totalAmount REAL DEFAULT 0,
+      paymentMethod TEXT,
+      deliveryType TEXT,
+      status TEXT,
       changeFor REAL
     );
   `);

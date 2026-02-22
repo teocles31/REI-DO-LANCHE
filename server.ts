@@ -29,12 +29,12 @@ const createCrudRoutes = (tableName: string) => {
       // Parse JSON fields if necessary
       const parsedRows = rows.map((row: any) => {
         if (tableName === 'products') {
-          row.ingredients = JSON.parse(row.ingredients);
-          row.complements = row.complements ? JSON.parse(row.complements) : undefined;
-          row.addOns = row.addOns ? JSON.parse(row.addOns) : undefined;
+          row.ingredients = row.ingredients ? JSON.parse(row.ingredients) : [];
+          row.complements = row.complements ? JSON.parse(row.complements) : [];
+          row.addOns = row.addOns ? JSON.parse(row.addOns) : [];
         }
         if (tableName === 'orders') {
-          row.items = JSON.parse(row.items);
+          row.items = row.items ? JSON.parse(row.items) : [];
         }
         // Convert boolean integers back to boolean
         if (row.isRecurring !== undefined) row.isRecurring = !!row.isRecurring;
@@ -180,6 +180,19 @@ app.post('/api/migrate', (req, res) => {
                  if (k === 'totalOrders') return 0;
                  if (k === 'status' && table === 'revenues') return 'paid';
                  if (k === 'status' && table === 'expenses') return 'paid';
+                 
+                 // Critical JSON fields
+                 if (k === 'ingredients' && table === 'products') return '[]';
+                 if (k === 'items' && table === 'orders') return '[]';
+                 
+                 // Text fields
+                 if (k === 'name') return 'Sem Nome';
+                 if (k === 'category') return 'Outros';
+                 if (k === 'unit') return 'un';
+                 
+                 // Numeric fields
+                 if (['costPerUnit', 'exitPrice', 'stockQuantity', 'minStock', 'price', 'amount', 'quantity', 'cost', 'salary', 'totalAmount'].includes(k)) return 0;
+
                  return null;
             }
 
@@ -191,7 +204,9 @@ app.post('/api/migrate', (req, res) => {
             stmt.run(...values);
         } catch (e) {
             console.error(`Failed to insert into ${table}:`, e, row);
-            throw e; // Re-throw to abort transaction
+            // Don't throw, just log and continue to try next rows? 
+            // No, transaction will fail. But at least we see why.
+            throw e; 
         }
       }
     });
